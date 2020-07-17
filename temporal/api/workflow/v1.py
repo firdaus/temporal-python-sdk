@@ -6,36 +6,36 @@ from typing import List, Optional
 
 import betterproto
 
-from .temporal.api.common import v1
-from .temporal.api.enums import v1
-from .temporal.api.failure import v1
-from .temporal.api.taskqueue import v1
+from temporal.api.common import v1 as v1common
+from temporal.api.enums import v1 as v1enums
+from temporal.api.failure import v1 as v1failure
+from temporal.api.taskqueue import v1 as v1taskqueue
 
 
 @dataclass
 class WorkflowExecutionInfo(betterproto.Message):
-    execution: v1.WorkflowExecution = betterproto.message_field(1)
-    type: v1.WorkflowType = betterproto.message_field(2)
+    execution: v1common.WorkflowExecution = betterproto.message_field(1)
+    type: v1common.WorkflowType = betterproto.message_field(2)
     start_time: Optional[int] = betterproto.message_field(
         3, wraps=betterproto.TYPE_INT64
     )
     close_time: Optional[int] = betterproto.message_field(
         4, wraps=betterproto.TYPE_INT64
     )
-    status: v1.WorkflowExecutionStatus = betterproto.enum_field(5)
+    status: v1enums.WorkflowExecutionStatus = betterproto.enum_field(5)
     history_length: int = betterproto.int64_field(6)
     parent_namespace_id: str = betterproto.string_field(7)
-    parent_execution: v1.WorkflowExecution = betterproto.message_field(8)
+    parent_execution: v1common.WorkflowExecution = betterproto.message_field(8)
     execution_time: int = betterproto.int64_field(9)
-    memo: v1.Memo = betterproto.message_field(10)
-    search_attributes: v1.SearchAttributes = betterproto.message_field(11)
+    memo: v1common.Memo = betterproto.message_field(10)
+    search_attributes: v1common.SearchAttributes = betterproto.message_field(11)
     auto_reset_points: "ResetPoints" = betterproto.message_field(12)
     task_queue: str = betterproto.string_field(13)
 
 
 @dataclass
 class WorkflowExecutionConfig(betterproto.Message):
-    task_queue: v1.TaskQueue = betterproto.message_field(1)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(1)
     workflow_execution_timeout_seconds: int = betterproto.int32_field(2)
     workflow_run_timeout_seconds: int = betterproto.int32_field(3)
     workflow_task_timeout_seconds: int = betterproto.int32_field(4)
@@ -44,16 +44,16 @@ class WorkflowExecutionConfig(betterproto.Message):
 @dataclass
 class PendingActivityInfo(betterproto.Message):
     activity_id: str = betterproto.string_field(1)
-    activity_type: v1.ActivityType = betterproto.message_field(2)
-    state: v1.PendingActivityState = betterproto.enum_field(3)
-    heartbeat_details: v1.Payloads = betterproto.message_field(4)
+    activity_type: v1common.ActivityType = betterproto.message_field(2)
+    state: v1enums.PendingActivityState = betterproto.enum_field(3)
+    heartbeat_details: v1common.Payloads = betterproto.message_field(4)
     last_heartbeat_timestamp: int = betterproto.int64_field(5)
     last_started_timestamp: int = betterproto.int64_field(6)
     attempt: int = betterproto.int32_field(7)
     maximum_attempts: int = betterproto.int32_field(8)
     scheduled_timestamp: int = betterproto.int64_field(9)
     expiration_timestamp: int = betterproto.int64_field(10)
-    last_failure: v1.Failure = betterproto.message_field(11)
+    last_failure: v1failure.Failure = betterproto.message_field(11)
     last_worker_identity: str = betterproto.string_field(12)
 
 
@@ -64,7 +64,7 @@ class PendingChildExecutionInfo(betterproto.Message):
     workflow_type_name: str = betterproto.string_field(3)
     initiated_id: int = betterproto.int64_field(4)
     # Default: PARENT_CLOSE_POLICY_TERMINATE.
-    parent_close_policy: v1.ParentClosePolicy = betterproto.enum_field(5)
+    parent_close_policy: v1enums.ParentClosePolicy = betterproto.enum_field(5)
 
 
 @dataclass

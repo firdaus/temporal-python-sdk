@@ -6,13 +6,13 @@ from typing import Dict, Optional
 
 import betterproto
 
-from .temporal.api.enums import v1
+from temporal.api.enums import v1 as v1enums
 
 
 @dataclass
 class NamespaceInfo(betterproto.Message):
     name: str = betterproto.string_field(1)
-    state: v1.NamespaceState = betterproto.enum_field(2)
+    state: v1enums.NamespaceState = betterproto.enum_field(2)
     description: str = betterproto.string_field(3)
     owner_email: str = betterproto.string_field(4)
     # A key-value map for any customized purpose.
@@ -31,11 +31,11 @@ class NamespaceConfig(betterproto.Message):
     bad_binaries: "BadBinaries" = betterproto.message_field(3)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    history_archival_state: v1.ArchivalState = betterproto.enum_field(4)
+    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(4)
     history_archival_uri: str = betterproto.string_field(5)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    visibility_archival_state: v1.ArchivalState = betterproto.enum_field(6)
+    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(6)
     visibility_archival_uri: str = betterproto.string_field(7)
 
 

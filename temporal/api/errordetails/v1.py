@@ -26,25 +26,6 @@ class NamespaceNotActiveFailure(betterproto.Message):
 
 
 @dataclass
-class RetryTaskFailure(betterproto.Message):
-    namespace_id: str = betterproto.string_field(1)
-    workflow_id: str = betterproto.string_field(2)
-    run_id: str = betterproto.string_field(3)
-    next_event_id: int = betterproto.int64_field(4)
-
-
-@dataclass
-class RetryTaskV2Failure(betterproto.Message):
-    namespace_id: str = betterproto.string_field(1)
-    workflow_id: str = betterproto.string_field(2)
-    run_id: str = betterproto.string_field(3)
-    start_event_id: int = betterproto.int64_field(4)
-    start_event_version: int = betterproto.int64_field(5)
-    end_event_id: int = betterproto.int64_field(6)
-    end_event_version: int = betterproto.int64_field(7)
-
-
-@dataclass
 class ClientVersionNotSupportedFailure(betterproto.Message):
     client_version: str = betterproto.string_field(1)
     client_impl: str = betterproto.string_field(2)
@@ -59,16 +40,6 @@ class FeatureVersionNotSupportedFailure(betterproto.Message):
 
 
 @dataclass
-class CurrentBranchChangedFailure(betterproto.Message):
-    current_branch_token: bytes = betterproto.bytes_field(1)
-
-
-@dataclass
-class ShardOwnershipLostFailure(betterproto.Message):
-    owner: str = betterproto.string_field(1)
-
-
-@dataclass
 class NamespaceAlreadyExistsFailure(betterproto.Message):
     pass
 
@@ -80,9 +51,4 @@ class CancellationAlreadyRequestedFailure(betterproto.Message):
 
 @dataclass
 class QueryFailedFailure(betterproto.Message):
-    pass
-
-
-@dataclass
-class EventAlreadyStartedFailure(betterproto.Message):
     pass

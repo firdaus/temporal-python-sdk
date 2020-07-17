@@ -6,14 +6,14 @@ from typing import Optional
 
 import betterproto
 
-from .temporal.api.enums import v1
+from temporal.api.enums import v1 as v1enums
 
 
 @dataclass
 class TaskQueue(betterproto.Message):
     name: str = betterproto.string_field(1)
     # Default: TASK_QUEUE_KIND_NORMAL.
-    kind: v1.TaskQueueKind = betterproto.enum_field(2)
+    kind: v1enums.TaskQueueKind = betterproto.enum_field(2)
 
 
 @dataclass

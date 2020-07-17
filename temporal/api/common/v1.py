@@ -6,12 +6,12 @@ from typing import Dict, List
 
 import betterproto
 
-from .temporal.api.enums import v1
+from temporal.api.enums import v1 as v1enums
 
 
 @dataclass
 class DataBlob(betterproto.Message):
-    encoding_type: v1.EncodingType = betterproto.enum_field(1)
+    encoding_type: v1enums.EncodingType = betterproto.enum_field(1)
     data: bytes = betterproto.bytes_field(2)
 
 

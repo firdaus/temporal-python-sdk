@@ -7,18 +7,18 @@ from typing import Dict, List, Optional
 import betterproto
 import grpclib
 
-from .temporal.api.command import v1
-from .temporal.api.common import v1
-from .temporal.api.enums import v1
-from .temporal.api.failure import v1
-from .temporal.api.filter import v1
-from .temporal.api.history import v1
-from .temporal.api.namespace import v1
-from .temporal.api.query import v1
-from .temporal.api.replication import v1
-from .temporal.api.taskqueue import v1
-from .temporal.api.version import v1
-from .temporal.api.workflow import v1
+from temporal.api.command import v1 as v1command
+from temporal.api.common import v1 as v1common
+from temporal.api.enums import v1 as v1enums
+from temporal.api.failure import v1 as v1failure
+from temporal.api.filter import v1 as v1filter
+from temporal.api.history import v1 as v1history
+from temporal.api.namespace import v1 as v1namespace
+from temporal.api.query import v1 as v1query
+from temporal.api.replication import v1 as v1replication
+from temporal.api.taskqueue import v1 as v1taskqueue
+from temporal.api.version import v1 as v1version
+from temporal.api.workflow import v1 as v1workflow
 
 
 @dataclass
@@ -28,7 +28,9 @@ class RegisterNamespaceRequest(betterproto.Message):
     owner_email: str = betterproto.string_field(3)
     workflow_execution_retention_period_days: int = betterproto.int32_field(4)
     emit_metric: bool = betterproto.bool_field(5)
-    clusters: List[v1.ClusterReplicationConfig] = betterproto.message_field(6)
+    clusters: List[v1replication.ClusterReplicationConfig] = betterproto.message_field(
+        6
+    )
     active_cluster_name: str = betterproto.string_field(7)
     # A key-value map for any customized purpose.
     data: Dict[str, str] = betterproto.map_field(
@@ -38,11 +40,11 @@ class RegisterNamespaceRequest(betterproto.Message):
     is_global_namespace: bool = betterproto.bool_field(10)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    history_archival_state: v1.ArchivalState = betterproto.enum_field(11)
+    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(11)
     history_archival_uri: str = betterproto.string_field(12)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    visibility_archival_state: v1.ArchivalState = betterproto.enum_field(13)
+    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(13)
     visibility_archival_uri: str = betterproto.string_field(14)
 
 
@@ -71,9 +73,11 @@ class DescribeNamespaceRequest(betterproto.Message):
 
 @dataclass
 class DescribeNamespaceResponse(betterproto.Message):
-    namespace_info: v1.NamespaceInfo = betterproto.message_field(1)
-    config: v1.NamespaceConfig = betterproto.message_field(2)
-    replication_config: v1.NamespaceReplicationConfig = betterproto.message_field(3)
+    namespace_info: v1namespace.NamespaceInfo = betterproto.message_field(1)
+    config: v1namespace.NamespaceConfig = betterproto.message_field(2)
+    replication_config: v1replication.NamespaceReplicationConfig = betterproto.message_field(
+        3
+    )
     failover_version: int = betterproto.int64_field(4)
     is_global_namespace: bool = betterproto.bool_field(5)
 
@@ -88,18 +92,22 @@ class UpdateNamespaceRequest(betterproto.Message):
     """
 
     name: str = betterproto.string_field(1)
-    update_info: v1.UpdateNamespaceInfo = betterproto.message_field(2)
-    config: v1.NamespaceConfig = betterproto.message_field(3)
-    replication_config: v1.NamespaceReplicationConfig = betterproto.message_field(4)
+    update_info: v1namespace.UpdateNamespaceInfo = betterproto.message_field(2)
+    config: v1namespace.NamespaceConfig = betterproto.message_field(3)
+    replication_config: v1replication.NamespaceReplicationConfig = betterproto.message_field(
+        4
+    )
     security_token: str = betterproto.string_field(5)
     delete_bad_binary: str = betterproto.string_field(6)
 
 
 @dataclass
 class UpdateNamespaceResponse(betterproto.Message):
-    namespace_info: v1.NamespaceInfo = betterproto.message_field(1)
-    config: v1.NamespaceConfig = betterproto.message_field(2)
-    replication_config: v1.NamespaceReplicationConfig = betterproto.message_field(3)
+    namespace_info: v1namespace.NamespaceInfo = betterproto.message_field(1)
+    config: v1namespace.NamespaceConfig = betterproto.message_field(2)
+    replication_config: v1replication.NamespaceReplicationConfig = betterproto.message_field(
+        3
+    )
     failover_version: int = betterproto.int64_field(4)
     is_global_namespace: bool = betterproto.bool_field(5)
 
@@ -119,9 +127,9 @@ class DeprecateNamespaceResponse(betterproto.Message):
 class StartWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
     workflow_id: str = betterproto.string_field(2)
-    workflow_type: v1.WorkflowType = betterproto.message_field(3)
-    task_queue: v1.TaskQueue = betterproto.message_field(4)
-    input: v1.Payloads = betterproto.message_field(5)
+    workflow_type: v1common.WorkflowType = betterproto.message_field(3)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
+    input: v1common.Payloads = betterproto.message_field(5)
     # Total workflow execution timeout including retries and continue as new.
     workflow_execution_timeout_seconds: int = betterproto.int32_field(6)
     # Timeout of a single workflow run.
@@ -131,13 +139,13 @@ class StartWorkflowExecutionRequest(betterproto.Message):
     identity: str = betterproto.string_field(9)
     request_id: str = betterproto.string_field(10)
     # Default: WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE.
-    workflow_id_reuse_policy: v1.WorkflowIdReusePolicy = betterproto.enum_field(11)
+    workflow_id_reuse_policy: v1enums.WorkflowIdReusePolicy = betterproto.enum_field(11)
     # Retries up to workflow_execution_timeout_seconds.
-    retry_policy: v1.RetryPolicy = betterproto.message_field(12)
+    retry_policy: v1common.RetryPolicy = betterproto.message_field(12)
     cron_schedule: str = betterproto.string_field(13)
-    memo: v1.Memo = betterproto.message_field(14)
-    search_attributes: v1.SearchAttributes = betterproto.message_field(15)
-    header: v1.Header = betterproto.message_field(16)
+    memo: v1common.Memo = betterproto.message_field(14)
+    search_attributes: v1common.SearchAttributes = betterproto.message_field(15)
+    header: v1common.Header = betterproto.message_field(16)
 
 
 @dataclass
@@ -148,19 +156,21 @@ class StartWorkflowExecutionResponse(betterproto.Message):
 @dataclass
 class GetWorkflowExecutionHistoryRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    execution: v1.WorkflowExecution = betterproto.message_field(2)
+    execution: v1common.WorkflowExecution = betterproto.message_field(2)
     maximum_page_size: int = betterproto.int32_field(3)
     next_page_token: bytes = betterproto.bytes_field(4)
     wait_new_event: bool = betterproto.bool_field(5)
     # Default: HISTORY_EVENT_FILTER_TYPE_ALL_EVENT.
-    history_event_filter_type: v1.HistoryEventFilterType = betterproto.enum_field(6)
+    history_event_filter_type: v1enums.HistoryEventFilterType = betterproto.enum_field(
+        6
+    )
     skip_archival: bool = betterproto.bool_field(7)
 
 
 @dataclass
 class GetWorkflowExecutionHistoryResponse(betterproto.Message):
-    history: v1.History = betterproto.message_field(1)
-    raw_history: List[v1.DataBlob] = betterproto.message_field(2)
+    history: v1history.History = betterproto.message_field(1)
+    raw_history: List[v1common.DataBlob] = betterproto.message_field(2)
     next_page_token: bytes = betterproto.bytes_field(3)
     archived: bool = betterproto.bool_field(4)
 
@@ -168,7 +178,7 @@ class GetWorkflowExecutionHistoryResponse(betterproto.Message):
 @dataclass
 class PollWorkflowTaskQueueRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    task_queue: v1.TaskQueue = betterproto.message_field(2)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
     binary_checksum: str = betterproto.string_field(4)
 
@@ -176,19 +186,19 @@ class PollWorkflowTaskQueueRequest(betterproto.Message):
 @dataclass
 class PollWorkflowTaskQueueResponse(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(2)
-    workflow_type: v1.WorkflowType = betterproto.message_field(3)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(2)
+    workflow_type: v1common.WorkflowType = betterproto.message_field(3)
     previous_started_event_id: int = betterproto.int64_field(4)
     started_event_id: int = betterproto.int64_field(5)
     attempt: int = betterproto.int64_field(6)
     backlog_count_hint: int = betterproto.int64_field(7)
-    history: v1.History = betterproto.message_field(8)
+    history: v1history.History = betterproto.message_field(8)
     next_page_token: bytes = betterproto.bytes_field(9)
-    query: v1.WorkflowQuery = betterproto.message_field(10)
-    workflow_execution_task_queue: v1.TaskQueue = betterproto.message_field(11)
+    query: v1query.WorkflowQuery = betterproto.message_field(10)
+    workflow_execution_task_queue: v1taskqueue.TaskQueue = betterproto.message_field(11)
     scheduled_timestamp: int = betterproto.int64_field(12)
     started_timestamp: int = betterproto.int64_field(13)
-    queries: Dict[str, v1.WorkflowQuery] = betterproto.map_field(
+    queries: Dict[str, v1query.WorkflowQuery] = betterproto.map_field(
         14, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )
 
@@ -196,13 +206,15 @@ class PollWorkflowTaskQueueResponse(betterproto.Message):
 @dataclass
 class RespondWorkflowTaskCompletedRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    commands: List[v1.Command] = betterproto.message_field(2)
+    commands: List[v1command.Command] = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
-    sticky_attributes: v1.StickyExecutionAttributes = betterproto.message_field(4)
+    sticky_attributes: v1taskqueue.StickyExecutionAttributes = betterproto.message_field(
+        4
+    )
     return_new_workflow_task: bool = betterproto.bool_field(5)
     force_create_new_workflow_task: bool = betterproto.bool_field(6)
     binary_checksum: str = betterproto.string_field(7)
-    query_results: Dict[str, v1.WorkflowQueryResult] = betterproto.map_field(
+    query_results: Dict[str, v1query.WorkflowQueryResult] = betterproto.map_field(
         8, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )
 
@@ -215,8 +227,8 @@ class RespondWorkflowTaskCompletedResponse(betterproto.Message):
 @dataclass
 class RespondWorkflowTaskFailedRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    cause: v1.WorkflowTaskFailedCause = betterproto.enum_field(2)
-    failure: v1.Failure = betterproto.message_field(3)
+    cause: v1enums.WorkflowTaskFailedCause = betterproto.enum_field(2)
+    failure: v1failure.Failure = betterproto.message_field(3)
     identity: str = betterproto.string_field(4)
     binary_checksum: str = betterproto.string_field(5)
 
@@ -229,22 +241,22 @@ class RespondWorkflowTaskFailedResponse(betterproto.Message):
 @dataclass
 class PollActivityTaskQueueRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    task_queue: v1.TaskQueue = betterproto.message_field(2)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
-    task_queue_metadata: v1.TaskQueueMetadata = betterproto.message_field(4)
+    task_queue_metadata: v1taskqueue.TaskQueueMetadata = betterproto.message_field(4)
 
 
 @dataclass
 class PollActivityTaskQueueResponse(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
     workflow_namespace: str = betterproto.string_field(2)
-    workflow_type: v1.WorkflowType = betterproto.message_field(3)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(4)
-    activity_type: v1.ActivityType = betterproto.message_field(5)
+    workflow_type: v1common.WorkflowType = betterproto.message_field(3)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(4)
+    activity_type: v1common.ActivityType = betterproto.message_field(5)
     activity_id: str = betterproto.string_field(6)
-    header: v1.Header = betterproto.message_field(7)
-    input: v1.Payloads = betterproto.message_field(8)
-    heartbeat_details: v1.Payloads = betterproto.message_field(9)
+    header: v1common.Header = betterproto.message_field(7)
+    input: v1common.Payloads = betterproto.message_field(8)
+    heartbeat_details: v1common.Payloads = betterproto.message_field(9)
     scheduled_timestamp: int = betterproto.int64_field(10)
     scheduled_timestamp_this_attempt: int = betterproto.int64_field(11)
     started_timestamp: int = betterproto.int64_field(12)
@@ -260,13 +272,13 @@ class PollActivityTaskQueueResponse(betterproto.Message):
     # the one provided (or not) during activity scheduling as the service can
     # override the provided one in case its values are not specified or exceed
     # configured system limits.
-    retry_policy: v1.RetryPolicy = betterproto.message_field(17)
+    retry_policy: v1common.RetryPolicy = betterproto.message_field(17)
 
 
 @dataclass
 class RecordActivityTaskHeartbeatRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    details: v1.Payloads = betterproto.message_field(2)
+    details: v1common.Payloads = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
 
 
@@ -281,7 +293,7 @@ class RecordActivityTaskHeartbeatByIdRequest(betterproto.Message):
     workflow_id: str = betterproto.string_field(2)
     run_id: str = betterproto.string_field(3)
     activity_id: str = betterproto.string_field(4)
-    details: v1.Payloads = betterproto.message_field(5)
+    details: v1common.Payloads = betterproto.message_field(5)
     identity: str = betterproto.string_field(6)
 
 
@@ -293,7 +305,7 @@ class RecordActivityTaskHeartbeatByIdResponse(betterproto.Message):
 @dataclass
 class RespondActivityTaskCompletedRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    result: v1.Payloads = betterproto.message_field(2)
+    result: v1common.Payloads = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
 
 
@@ -308,7 +320,7 @@ class RespondActivityTaskCompletedByIdRequest(betterproto.Message):
     workflow_id: str = betterproto.string_field(2)
     run_id: str = betterproto.string_field(3)
     activity_id: str = betterproto.string_field(4)
-    result: v1.Payloads = betterproto.message_field(5)
+    result: v1common.Payloads = betterproto.message_field(5)
     identity: str = betterproto.string_field(6)
 
 
@@ -320,7 +332,7 @@ class RespondActivityTaskCompletedByIdResponse(betterproto.Message):
 @dataclass
 class RespondActivityTaskFailedRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    failure: v1.Failure = betterproto.message_field(2)
+    failure: v1failure.Failure = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
 
 
@@ -335,7 +347,7 @@ class RespondActivityTaskFailedByIdRequest(betterproto.Message):
     workflow_id: str = betterproto.string_field(2)
     run_id: str = betterproto.string_field(3)
     activity_id: str = betterproto.string_field(4)
-    failure: v1.Failure = betterproto.message_field(5)
+    failure: v1failure.Failure = betterproto.message_field(5)
     identity: str = betterproto.string_field(6)
 
 
@@ -347,7 +359,7 @@ class RespondActivityTaskFailedByIdResponse(betterproto.Message):
 @dataclass
 class RespondActivityTaskCanceledRequest(betterproto.Message):
     task_token: bytes = betterproto.bytes_field(1)
-    details: v1.Payloads = betterproto.message_field(2)
+    details: v1common.Payloads = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
 
 
@@ -362,7 +374,7 @@ class RespondActivityTaskCanceledByIdRequest(betterproto.Message):
     workflow_id: str = betterproto.string_field(2)
     run_id: str = betterproto.string_field(3)
     activity_id: str = betterproto.string_field(4)
-    details: v1.Payloads = betterproto.message_field(5)
+    details: v1common.Payloads = betterproto.message_field(5)
     identity: str = betterproto.string_field(6)
 
 
@@ -374,7 +386,7 @@ class RespondActivityTaskCanceledByIdResponse(betterproto.Message):
 @dataclass
 class RequestCancelWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(2)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(2)
     identity: str = betterproto.string_field(3)
     request_id: str = betterproto.string_field(4)
 
@@ -387,9 +399,9 @@ class RequestCancelWorkflowExecutionResponse(betterproto.Message):
 @dataclass
 class SignalWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(2)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(2)
     signal_name: str = betterproto.string_field(3)
-    input: v1.Payloads = betterproto.message_field(4)
+    input: v1common.Payloads = betterproto.message_field(4)
     identity: str = betterproto.string_field(5)
     request_id: str = betterproto.string_field(6)
     control: str = betterproto.string_field(7)
@@ -404,9 +416,9 @@ class SignalWorkflowExecutionResponse(betterproto.Message):
 class SignalWithStartWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
     workflow_id: str = betterproto.string_field(2)
-    workflow_type: v1.WorkflowType = betterproto.message_field(3)
-    task_queue: v1.TaskQueue = betterproto.message_field(4)
-    input: v1.Payloads = betterproto.message_field(5)
+    workflow_type: v1common.WorkflowType = betterproto.message_field(3)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
+    input: v1common.Payloads = betterproto.message_field(5)
     # Total workflow execution timeout including retries and continue as new
     workflow_execution_timeout_seconds: int = betterproto.int32_field(6)
     # Timeout of a single workflow run
@@ -415,16 +427,16 @@ class SignalWithStartWorkflowExecutionRequest(betterproto.Message):
     workflow_task_timeout_seconds: int = betterproto.int32_field(8)
     identity: str = betterproto.string_field(9)
     request_id: str = betterproto.string_field(10)
-    workflow_id_reuse_policy: v1.WorkflowIdReusePolicy = betterproto.enum_field(11)
+    workflow_id_reuse_policy: v1enums.WorkflowIdReusePolicy = betterproto.enum_field(11)
     signal_name: str = betterproto.string_field(12)
-    signal_input: v1.Payloads = betterproto.message_field(13)
+    signal_input: v1common.Payloads = betterproto.message_field(13)
     control: str = betterproto.string_field(14)
     # Default: WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE.
-    retry_policy: v1.RetryPolicy = betterproto.message_field(15)
+    retry_policy: v1common.RetryPolicy = betterproto.message_field(15)
     cron_schedule: str = betterproto.string_field(16)
-    memo: v1.Memo = betterproto.message_field(17)
-    search_attributes: v1.SearchAttributes = betterproto.message_field(18)
-    header: v1.Header = betterproto.message_field(19)
+    memo: v1common.Memo = betterproto.message_field(17)
+    search_attributes: v1common.SearchAttributes = betterproto.message_field(18)
+    header: v1common.Header = betterproto.message_field(19)
 
 
 @dataclass
@@ -435,7 +447,7 @@ class SignalWithStartWorkflowExecutionResponse(betterproto.Message):
 @dataclass
 class ResetWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(2)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(2)
     reason: str = betterproto.string_field(3)
     workflow_task_finish_event_id: int = betterproto.int64_field(4)
     request_id: str = betterproto.string_field(5)
@@ -449,9 +461,9 @@ class ResetWorkflowExecutionResponse(betterproto.Message):
 @dataclass
 class TerminateWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    workflow_execution: v1.WorkflowExecution = betterproto.message_field(2)
+    workflow_execution: v1common.WorkflowExecution = betterproto.message_field(2)
     reason: str = betterproto.string_field(3)
-    details: v1.Payloads = betterproto.message_field(4)
+    details: v1common.Payloads = betterproto.message_field(4)
     identity: str = betterproto.string_field(5)
 
 
@@ -465,16 +477,18 @@ class ListOpenWorkflowExecutionsRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
     maximum_page_size: int = betterproto.int32_field(2)
     next_page_token: bytes = betterproto.bytes_field(3)
-    start_time_filter: v1.StartTimeFilter = betterproto.message_field(4)
-    execution_filter: v1.WorkflowExecutionFilter = betterproto.message_field(
+    start_time_filter: v1filter.StartTimeFilter = betterproto.message_field(4)
+    execution_filter: v1filter.WorkflowExecutionFilter = betterproto.message_field(
         5, group="filters"
     )
-    type_filter: v1.WorkflowTypeFilter = betterproto.message_field(6, group="filters")
+    type_filter: v1filter.WorkflowTypeFilter = betterproto.message_field(
+        6, group="filters"
+    )
 
 
 @dataclass
 class ListOpenWorkflowExecutionsResponse(betterproto.Message):
-    executions: List[v1.WorkflowExecutionInfo] = betterproto.message_field(1)
+    executions: List[v1workflow.WorkflowExecutionInfo] = betterproto.message_field(1)
     next_page_token: bytes = betterproto.bytes_field(2)
 
 
@@ -483,17 +497,19 @@ class ListClosedWorkflowExecutionsRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
     maximum_page_size: int = betterproto.int32_field(2)
     next_page_token: bytes = betterproto.bytes_field(3)
-    start_time_filter: v1.StartTimeFilter = betterproto.message_field(4)
-    execution_filter: v1.WorkflowExecutionFilter = betterproto.message_field(
+    start_time_filter: v1filter.StartTimeFilter = betterproto.message_field(4)
+    execution_filter: v1filter.WorkflowExecutionFilter = betterproto.message_field(
         5, group="filters"
     )
-    type_filter: v1.WorkflowTypeFilter = betterproto.message_field(6, group="filters")
-    status_filter: v1.StatusFilter = betterproto.message_field(7, group="filters")
+    type_filter: v1filter.WorkflowTypeFilter = betterproto.message_field(
+        6, group="filters"
+    )
+    status_filter: v1filter.StatusFilter = betterproto.message_field(7, group="filters")
 
 
 @dataclass
 class ListClosedWorkflowExecutionsResponse(betterproto.Message):
-    executions: List[v1.WorkflowExecutionInfo] = betterproto.message_field(1)
+    executions: List[v1workflow.WorkflowExecutionInfo] = betterproto.message_field(1)
     next_page_token: bytes = betterproto.bytes_field(2)
 
 
@@ -507,7 +523,7 @@ class ListWorkflowExecutionsRequest(betterproto.Message):
 
 @dataclass
 class ListWorkflowExecutionsResponse(betterproto.Message):
-    executions: List[v1.WorkflowExecutionInfo] = betterproto.message_field(1)
+    executions: List[v1workflow.WorkflowExecutionInfo] = betterproto.message_field(1)
     next_page_token: bytes = betterproto.bytes_field(2)
 
 
@@ -521,7 +537,7 @@ class ListArchivedWorkflowExecutionsRequest(betterproto.Message):
 
 @dataclass
 class ListArchivedWorkflowExecutionsResponse(betterproto.Message):
-    executions: List[v1.WorkflowExecutionInfo] = betterproto.message_field(1)
+    executions: List[v1workflow.WorkflowExecutionInfo] = betterproto.message_field(1)
     next_page_token: bytes = betterproto.bytes_field(2)
 
 
@@ -535,7 +551,7 @@ class ScanWorkflowExecutionsRequest(betterproto.Message):
 
 @dataclass
 class ScanWorkflowExecutionsResponse(betterproto.Message):
-    executions: List[v1.WorkflowExecutionInfo] = betterproto.message_field(1)
+    executions: List[v1workflow.WorkflowExecutionInfo] = betterproto.message_field(1)
     next_page_token: bytes = betterproto.bytes_field(2)
 
 
@@ -557,7 +573,7 @@ class GetSearchAttributesRequest(betterproto.Message):
 
 @dataclass
 class GetSearchAttributesResponse(betterproto.Message):
-    keys: Dict[str, v1.IndexedValueType] = betterproto.map_field(
+    keys: Dict[str, v1enums.IndexedValueType] = betterproto.map_field(
         1, betterproto.TYPE_STRING, betterproto.TYPE_ENUM
     )
 
@@ -567,10 +583,10 @@ class RespondQueryTaskCompletedRequest(betterproto.Message):
     """TODO:  deprecated APIs"""
 
     task_token: bytes = betterproto.bytes_field(1)
-    completed_type: v1.QueryResultType = betterproto.enum_field(2)
-    query_result: v1.Payloads = betterproto.message_field(3)
+    completed_type: v1enums.QueryResultType = betterproto.enum_field(2)
+    query_result: v1common.Payloads = betterproto.message_field(3)
     error_message: str = betterproto.string_field(4)
-    worker_version_info: v1.WorkerVersionInfo = betterproto.message_field(5)
+    worker_version_info: v1version.WorkerVersionInfo = betterproto.message_field(5)
 
 
 @dataclass
@@ -581,7 +597,7 @@ class RespondQueryTaskCompletedResponse(betterproto.Message):
 @dataclass
 class ResetStickyTaskQueueRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    execution: v1.WorkflowExecution = betterproto.message_field(2)
+    execution: v1common.WorkflowExecution = betterproto.message_field(2)
 
 
 @dataclass
@@ -592,45 +608,51 @@ class ResetStickyTaskQueueResponse(betterproto.Message):
 @dataclass
 class QueryWorkflowRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    execution: v1.WorkflowExecution = betterproto.message_field(2)
-    query: v1.WorkflowQuery = betterproto.message_field(3)
+    execution: v1common.WorkflowExecution = betterproto.message_field(2)
+    query: v1query.WorkflowQuery = betterproto.message_field(3)
     # QueryRejectCondition can used to reject the query if workflow state does
     # not satisfy condition. Default: QUERY_REJECT_CONDITION_NONE.
-    query_reject_condition: v1.QueryRejectCondition = betterproto.enum_field(4)
+    query_reject_condition: v1enums.QueryRejectCondition = betterproto.enum_field(4)
 
 
 @dataclass
 class QueryWorkflowResponse(betterproto.Message):
-    query_result: v1.Payloads = betterproto.message_field(1)
-    query_rejected: v1.QueryRejected = betterproto.message_field(2)
+    query_result: v1common.Payloads = betterproto.message_field(1)
+    query_rejected: v1query.QueryRejected = betterproto.message_field(2)
 
 
 @dataclass
 class DescribeWorkflowExecutionRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    execution: v1.WorkflowExecution = betterproto.message_field(2)
+    execution: v1common.WorkflowExecution = betterproto.message_field(2)
 
 
 @dataclass
 class DescribeWorkflowExecutionResponse(betterproto.Message):
-    execution_config: v1.WorkflowExecutionConfig = betterproto.message_field(1)
-    workflow_execution_info: v1.WorkflowExecutionInfo = betterproto.message_field(2)
-    pending_activities: List[v1.PendingActivityInfo] = betterproto.message_field(3)
-    pending_children: List[v1.PendingChildExecutionInfo] = betterproto.message_field(4)
+    execution_config: v1workflow.WorkflowExecutionConfig = betterproto.message_field(1)
+    workflow_execution_info: v1workflow.WorkflowExecutionInfo = betterproto.message_field(
+        2
+    )
+    pending_activities: List[
+        v1workflow.PendingActivityInfo
+    ] = betterproto.message_field(3)
+    pending_children: List[
+        v1workflow.PendingChildExecutionInfo
+    ] = betterproto.message_field(4)
 
 
 @dataclass
 class DescribeTaskQueueRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    task_queue: v1.TaskQueue = betterproto.message_field(2)
-    task_queue_type: v1.TaskQueueType = betterproto.enum_field(3)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(2)
+    task_queue_type: v1enums.TaskQueueType = betterproto.enum_field(3)
     include_task_queue_status: bool = betterproto.bool_field(4)
 
 
 @dataclass
 class DescribeTaskQueueResponse(betterproto.Message):
-    pollers: List[v1.PollerInfo] = betterproto.message_field(1)
-    task_queue_status: v1.TaskQueueStatus = betterproto.message_field(2)
+    pollers: List[v1taskqueue.PollerInfo] = betterproto.message_field(1)
+    task_queue_status: v1taskqueue.TaskQueueStatus = betterproto.message_field(2)
 
 
 @dataclass
@@ -642,22 +664,24 @@ class GetClusterInfoRequest(betterproto.Message):
 class GetClusterInfoResponse(betterproto.Message):
     """GetClusterInfoResponse contains information about Temporal cluster"""
 
-    supported_sdk_versions: v1.SupportedSDKVersions = betterproto.message_field(1)
+    supported_sdk_versions: v1version.SupportedSDKVersions = betterproto.message_field(
+        1
+    )
 
 
 @dataclass
 class ListTaskQueuePartitionsRequest(betterproto.Message):
     namespace: str = betterproto.string_field(1)
-    task_queue: v1.TaskQueue = betterproto.message_field(2)
+    task_queue: v1taskqueue.TaskQueue = betterproto.message_field(2)
 
 
 @dataclass
 class ListTaskQueuePartitionsResponse(betterproto.Message):
     activity_task_queue_partitions: List[
-        v1.TaskQueuePartitionMetadata
+        v1taskqueue.TaskQueuePartitionMetadata
     ] = betterproto.message_field(1)
     workflow_task_queue_partitions: List[
-        v1.TaskQueuePartitionMetadata
+        v1taskqueue.TaskQueuePartitionMetadata
     ] = betterproto.message_field(2)
 
 
@@ -676,22 +700,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
     """
 
     async def register_namespace(
-        self,
-        *,
-        name: str = "",
-        description: str = "",
-        owner_email: str = "",
-        workflow_execution_retention_period_days: int = 0,
-        emit_metric: bool = False,
-        clusters: List[v1.ClusterReplicationConfig] = [],
-        active_cluster_name: str = "",
-        data: Optional[Dict[str, str]] = None,
-        security_token: str = "",
-        is_global_namespace: bool = False,
-        history_archival_state: v1.ArchivalState = 0,
-        history_archival_uri: str = "",
-        visibility_archival_state: v1.ArchivalState = 0,
-        visibility_archival_uri: str = "",
+        self, *, request: RegisterNamespaceRequest
     ) -> RegisterNamespaceResponse:
         """
         RegisterNamespace creates a new namespace which can be used as a
@@ -702,25 +711,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         belongs to exactly one namespace.
         """
 
-        request = RegisterNamespaceRequest()
-        request.name = name
-        request.description = description
-        request.owner_email = owner_email
-        request.workflow_execution_retention_period_days = (
-            workflow_execution_retention_period_days
-        )
-        request.emit_metric = emit_metric
-        if clusters is not None:
-            request.clusters = clusters
-        request.active_cluster_name = active_cluster_name
-        request.data = data
-        request.security_token = security_token
-        request.is_global_namespace = is_global_namespace
-        request.history_archival_state = history_archival_state
-        request.history_archival_uri = history_archival_uri
-        request.visibility_archival_state = visibility_archival_state
-        request.visibility_archival_uri = visibility_archival_uri
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RegisterNamespace",
             request,
@@ -728,16 +718,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def describe_namespace(
-        self, *, name: str = "", id: str = ""
+        self, *, request: DescribeNamespaceRequest
     ) -> DescribeNamespaceResponse:
         """
         DescribeNamespace returns the information and configuration for a
         registered namespace.
         """
-
-        request = DescribeNamespaceRequest()
-        request.name = name
-        request.id = id
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/DescribeNamespace",
@@ -746,16 +732,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_namespaces(
-        self, *, page_size: int = 0, next_page_token: bytes = b""
+        self, *, request: ListNamespacesRequest
     ) -> ListNamespacesResponse:
         """
         ListNamespaces returns the information and configuration for all
         namespaces.
         """
-
-        request = ListNamespacesRequest()
-        request.page_size = page_size
-        request.next_page_token = next_page_token
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListNamespaces",
@@ -764,14 +746,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def update_namespace(
-        self,
-        *,
-        name: str = "",
-        update_info: Optional[v1.UpdateNamespaceInfo] = None,
-        config: Optional[v1.NamespaceConfig] = None,
-        replication_config: Optional[v1.NamespaceReplicationConfig] = None,
-        security_token: str = "",
-        delete_bad_binary: str = "",
+        self, *, request: UpdateNamespaceRequest
     ) -> UpdateNamespaceResponse:
         """
         (-- api-linter: core::0134::method-signature=disabled     aip.dev/not-
@@ -782,17 +757,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         configuration for a registered namespace.
         """
 
-        request = UpdateNamespaceRequest()
-        request.name = name
-        if update_info is not None:
-            request.update_info = update_info
-        if config is not None:
-            request.config = config
-        if replication_config is not None:
-            request.replication_config = replication_config
-        request.security_token = security_token
-        request.delete_bad_binary = delete_bad_binary
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/UpdateNamespace",
             request,
@@ -800,7 +764,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def deprecate_namespace(
-        self, *, name: str = "", security_token: str = ""
+        self, *, request: DeprecateNamespaceRequest
     ) -> DeprecateNamespaceResponse:
         """
         DeprecateNamespace is used to update state of a registered namespace to
@@ -809,10 +773,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         continue to run on deprecated namespaces.
         """
 
-        request = DeprecateNamespaceRequest()
-        request.name = name
-        request.security_token = security_token
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/DeprecateNamespace",
             request,
@@ -820,24 +780,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def start_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        workflow_type: Optional[v1.WorkflowType] = None,
-        task_queue: Optional[v1.TaskQueue] = None,
-        input: Optional[v1.Payloads] = None,
-        workflow_execution_timeout_seconds: int = 0,
-        workflow_run_timeout_seconds: int = 0,
-        workflow_task_timeout_seconds: int = 0,
-        identity: str = "",
-        request_id: str = "",
-        workflow_id_reuse_policy: v1.WorkflowIdReusePolicy = 0,
-        retry_policy: Optional[v1.RetryPolicy] = None,
-        cron_schedule: str = "",
-        memo: Optional[v1.Memo] = None,
-        search_attributes: Optional[v1.SearchAttributes] = None,
-        header: Optional[v1.Header] = None,
+        self, *, request: StartWorkflowExecutionRequest
     ) -> StartWorkflowExecutionResponse:
         """
         StartWorkflowExecution starts a new long running workflow instance.  It
@@ -848,31 +791,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         with same workflowId.
         """
 
-        request = StartWorkflowExecutionRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        if workflow_type is not None:
-            request.workflow_type = workflow_type
-        if task_queue is not None:
-            request.task_queue = task_queue
-        if input is not None:
-            request.input = input
-        request.workflow_execution_timeout_seconds = workflow_execution_timeout_seconds
-        request.workflow_run_timeout_seconds = workflow_run_timeout_seconds
-        request.workflow_task_timeout_seconds = workflow_task_timeout_seconds
-        request.identity = identity
-        request.request_id = request_id
-        request.workflow_id_reuse_policy = workflow_id_reuse_policy
-        if retry_policy is not None:
-            request.retry_policy = retry_policy
-        request.cron_schedule = cron_schedule
-        if memo is not None:
-            request.memo = memo
-        if search_attributes is not None:
-            request.search_attributes = search_attributes
-        if header is not None:
-            request.header = header
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/StartWorkflowExecution",
             request,
@@ -880,31 +798,13 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def get_workflow_execution_history(
-        self,
-        *,
-        namespace: str = "",
-        execution: Optional[v1.WorkflowExecution] = None,
-        maximum_page_size: int = 0,
-        next_page_token: bytes = b"",
-        wait_new_event: bool = False,
-        history_event_filter_type: v1.HistoryEventFilterType = 0,
-        skip_archival: bool = False,
+        self, *, request: GetWorkflowExecutionHistoryRequest
     ) -> GetWorkflowExecutionHistoryResponse:
         """
         GetWorkflowExecutionHistory returns the history of specified workflow
         execution.  It fails with 'NotFoundFailure' if specified workflow
         execution in unknown to the service.
         """
-
-        request = GetWorkflowExecutionHistoryRequest()
-        request.namespace = namespace
-        if execution is not None:
-            request.execution = execution
-        request.maximum_page_size = maximum_page_size
-        request.next_page_token = next_page_token
-        request.wait_new_event = wait_new_event
-        request.history_event_filter_type = history_event_filter_type
-        request.skip_archival = skip_archival
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/GetWorkflowExecutionHistory",
@@ -913,29 +813,17 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def poll_workflow_task_queue(
-        self,
-        *,
-        namespace: str = "",
-        task_queue: Optional[v1.TaskQueue] = None,
-        identity: str = "",
-        binary_checksum: str = "",
+        self, *, request: PollWorkflowTaskQueueRequest
     ) -> PollWorkflowTaskQueueResponse:
         """
         PollWorkflowTaskQueue is called by application worker to process
         WorkflowTask from a specific task queue.  A WorkflowTask is dispatched
-        to callers for active workflow executions, with pending commands.
+        to callers for active workflow executions, with pending workflow tasks.
         Application is then expected to call 'RespondWorkflowTaskCompleted' API
         when it is done processing the WorkflowTask. It will also create a
         'WorkflowTaskStarted' event in the history for that session before
         handing off WorkflowTask to application worker.
         """
-
-        request = PollWorkflowTaskQueueRequest()
-        request.namespace = namespace
-        if task_queue is not None:
-            request.task_queue = task_queue
-        request.identity = identity
-        request.binary_checksum = binary_checksum
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/PollWorkflowTaskQueue",
@@ -944,16 +832,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_workflow_task_completed(
-        self,
-        *,
-        task_token: bytes = b"",
-        commands: List[v1.Command] = [],
-        identity: str = "",
-        sticky_attributes: Optional[v1.StickyExecutionAttributes] = None,
-        return_new_workflow_task: bool = False,
-        force_create_new_workflow_task: bool = False,
-        binary_checksum: str = "",
-        query_results: Optional[Dict[str, v1.WorkflowQueryResult]] = None,
+        self, *, request: RespondWorkflowTaskCompletedRequest
     ) -> RespondWorkflowTaskCompletedResponse:
         """
         RespondWorkflowTaskCompleted is called by application worker to
@@ -967,18 +846,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         is one or if the request asking for one.
         """
 
-        request = RespondWorkflowTaskCompletedRequest()
-        request.task_token = task_token
-        if commands is not None:
-            request.commands = commands
-        request.identity = identity
-        if sticky_attributes is not None:
-            request.sticky_attributes = sticky_attributes
-        request.return_new_workflow_task = return_new_workflow_task
-        request.force_create_new_workflow_task = force_create_new_workflow_task
-        request.binary_checksum = binary_checksum
-        request.query_results = query_results
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondWorkflowTaskCompleted",
             request,
@@ -986,13 +853,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_workflow_task_failed(
-        self,
-        *,
-        task_token: bytes = b"",
-        cause: v1.WorkflowTaskFailedCause = 0,
-        failure: Optional[v1.Failure] = None,
-        identity: str = "",
-        binary_checksum: str = "",
+        self, *, request: RespondWorkflowTaskFailedRequest
     ) -> RespondWorkflowTaskFailedResponse:
         """
         RespondWorkflowTaskFailed is called by application worker to indicate
@@ -1004,14 +865,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         consecutive failures.
         """
 
-        request = RespondWorkflowTaskFailedRequest()
-        request.task_token = task_token
-        request.cause = cause
-        if failure is not None:
-            request.failure = failure
-        request.identity = identity
-        request.binary_checksum = binary_checksum
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondWorkflowTaskFailed",
             request,
@@ -1019,12 +872,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def poll_activity_task_queue(
-        self,
-        *,
-        namespace: str = "",
-        task_queue: Optional[v1.TaskQueue] = None,
-        identity: str = "",
-        task_queue_metadata: Optional[v1.TaskQueueMetadata] = None,
+        self, *, request: PollActivityTaskQueueRequest
     ) -> PollActivityTaskQueueResponse:
         """
         PollActivityTaskQueue is called by application worker to process
@@ -1039,14 +887,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         history before the ActivityTask is dispatched to application worker.
         """
 
-        request = PollActivityTaskQueueRequest()
-        request.namespace = namespace
-        if task_queue is not None:
-            request.task_queue = task_queue
-        request.identity = identity
-        if task_queue_metadata is not None:
-            request.task_queue_metadata = task_queue_metadata
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/PollActivityTaskQueue",
             request,
@@ -1054,11 +894,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def record_activity_task_heartbeat(
-        self,
-        *,
-        task_token: bytes = b"",
-        details: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RecordActivityTaskHeartbeatRequest
     ) -> RecordActivityTaskHeartbeatResponse:
         """
         RecordActivityTaskHeartbeat is called by application worker while it is
@@ -1071,12 +907,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         beating.
         """
 
-        request = RecordActivityTaskHeartbeatRequest()
-        request.task_token = task_token
-        if details is not None:
-            request.details = details
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RecordActivityTaskHeartbeat",
             request,
@@ -1084,14 +914,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def record_activity_task_heartbeat_by_id(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        run_id: str = "",
-        activity_id: str = "",
-        details: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RecordActivityTaskHeartbeatByIdRequest
     ) -> RecordActivityTaskHeartbeatByIdResponse:
         """
         RecordActivityTaskHeartbeatById is called by application worker while
@@ -1104,15 +927,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         WorkflowId and ActivityId
         """
 
-        request = RecordActivityTaskHeartbeatByIdRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        request.run_id = run_id
-        request.activity_id = activity_id
-        if details is not None:
-            request.details = details
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RecordActivityTaskHeartbeatById",
             request,
@@ -1120,11 +934,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_completed(
-        self,
-        *,
-        task_token: bytes = b"",
-        result: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskCompletedRequest
     ) -> RespondActivityTaskCompletedResponse:
         """
         RespondActivityTaskCompleted is called by application worker when it is
@@ -1137,12 +947,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         timeout.
         """
 
-        request = RespondActivityTaskCompletedRequest()
-        request.task_token = task_token
-        if result is not None:
-            request.result = result
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskCompleted",
             request,
@@ -1150,14 +954,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_completed_by_id(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        run_id: str = "",
-        activity_id: str = "",
-        result: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskCompletedByIdRequest
     ) -> RespondActivityTaskCompletedByIdResponse:
         """
         RespondActivityTaskCompletedById is called by application worker when
@@ -1170,15 +967,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         to activity timeout.
         """
 
-        request = RespondActivityTaskCompletedByIdRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        request.run_id = run_id
-        request.activity_id = activity_id
-        if result is not None:
-            request.result = result
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskCompletedById",
             request,
@@ -1186,11 +974,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_failed(
-        self,
-        *,
-        task_token: bytes = b"",
-        failure: Optional[v1.Failure] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskFailedRequest
     ) -> RespondActivityTaskFailedResponse:
         """
         RespondActivityTaskFailed is called by application worker when it is
@@ -1203,12 +987,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         timeout.
         """
 
-        request = RespondActivityTaskFailedRequest()
-        request.task_token = task_token
-        if failure is not None:
-            request.failure = failure
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskFailed",
             request,
@@ -1216,14 +994,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_failed_by_id(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        run_id: str = "",
-        activity_id: str = "",
-        failure: Optional[v1.Failure] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskFailedByIdRequest
     ) -> RespondActivityTaskFailedByIdResponse:
         """
         RespondActivityTaskFailedById is called by application worker when it
@@ -1236,15 +1007,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         to activity timeout.
         """
 
-        request = RespondActivityTaskFailedByIdRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        request.run_id = run_id
-        request.activity_id = activity_id
-        if failure is not None:
-            request.failure = failure
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskFailedById",
             request,
@@ -1252,11 +1014,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_canceled(
-        self,
-        *,
-        task_token: bytes = b"",
-        details: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskCanceledRequest
     ) -> RespondActivityTaskCanceledResponse:
         """
         RespondActivityTaskCanceled is called by application worker when it is
@@ -1269,12 +1027,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         timeout.
         """
 
-        request = RespondActivityTaskCanceledRequest()
-        request.task_token = task_token
-        if details is not None:
-            request.details = details
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskCanceled",
             request,
@@ -1282,14 +1034,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_activity_task_canceled_by_id(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        run_id: str = "",
-        activity_id: str = "",
-        details: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: RespondActivityTaskCanceledByIdRequest
     ) -> RespondActivityTaskCanceledByIdResponse:
         """
         RespondActivityTaskCanceledById is called by application worker when it
@@ -1302,15 +1047,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         valid anymore due to activity timeout.
         """
 
-        request = RespondActivityTaskCanceledByIdRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        request.run_id = run_id
-        request.activity_id = activity_id
-        if details is not None:
-            request.details = details
-        request.identity = identity
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondActivityTaskCanceledById",
             request,
@@ -1318,12 +1054,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def request_cancel_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_execution: Optional[v1.WorkflowExecution] = None,
-        identity: str = "",
-        request_id: str = "",
+        self, *, request: RequestCancelWorkflowExecutionRequest
     ) -> RequestCancelWorkflowExecutionResponse:
         """
         RequestCancelWorkflowExecution is called by application worker when it
@@ -1335,13 +1066,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         exist.
         """
 
-        request = RequestCancelWorkflowExecutionRequest()
-        request.namespace = namespace
-        if workflow_execution is not None:
-            request.workflow_execution = workflow_execution
-        request.identity = identity
-        request.request_id = request_id
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RequestCancelWorkflowExecution",
             request,
@@ -1349,15 +1073,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def signal_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_execution: Optional[v1.WorkflowExecution] = None,
-        signal_name: str = "",
-        input: Optional[v1.Payloads] = None,
-        identity: str = "",
-        request_id: str = "",
-        control: str = "",
+        self, *, request: SignalWorkflowExecutionRequest
     ) -> SignalWorkflowExecutionResponse:
         """
         SignalWorkflowExecution is used to send a signal event to running
@@ -1366,17 +1082,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         execution.
         """
 
-        request = SignalWorkflowExecutionRequest()
-        request.namespace = namespace
-        if workflow_execution is not None:
-            request.workflow_execution = workflow_execution
-        request.signal_name = signal_name
-        if input is not None:
-            request.input = input
-        request.identity = identity
-        request.request_id = request_id
-        request.control = control
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/SignalWorkflowExecution",
             request,
@@ -1384,27 +1089,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def signal_with_start_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_id: str = "",
-        workflow_type: Optional[v1.WorkflowType] = None,
-        task_queue: Optional[v1.TaskQueue] = None,
-        input: Optional[v1.Payloads] = None,
-        workflow_execution_timeout_seconds: int = 0,
-        workflow_run_timeout_seconds: int = 0,
-        workflow_task_timeout_seconds: int = 0,
-        identity: str = "",
-        request_id: str = "",
-        workflow_id_reuse_policy: v1.WorkflowIdReusePolicy = 0,
-        signal_name: str = "",
-        signal_input: Optional[v1.Payloads] = None,
-        control: str = "",
-        retry_policy: Optional[v1.RetryPolicy] = None,
-        cron_schedule: str = "",
-        memo: Optional[v1.Memo] = None,
-        search_attributes: Optional[v1.SearchAttributes] = None,
-        header: Optional[v1.Header] = None,
+        self, *, request: SignalWithStartWorkflowExecutionRequest
     ) -> SignalWithStartWorkflowExecutionResponse:
         """
         SignalWithStartWorkflowExecution is used to ensure sending signal to a
@@ -1416,35 +1101,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         workflow task being created for the execution
         """
 
-        request = SignalWithStartWorkflowExecutionRequest()
-        request.namespace = namespace
-        request.workflow_id = workflow_id
-        if workflow_type is not None:
-            request.workflow_type = workflow_type
-        if task_queue is not None:
-            request.task_queue = task_queue
-        if input is not None:
-            request.input = input
-        request.workflow_execution_timeout_seconds = workflow_execution_timeout_seconds
-        request.workflow_run_timeout_seconds = workflow_run_timeout_seconds
-        request.workflow_task_timeout_seconds = workflow_task_timeout_seconds
-        request.identity = identity
-        request.request_id = request_id
-        request.workflow_id_reuse_policy = workflow_id_reuse_policy
-        request.signal_name = signal_name
-        if signal_input is not None:
-            request.signal_input = signal_input
-        request.control = control
-        if retry_policy is not None:
-            request.retry_policy = retry_policy
-        request.cron_schedule = cron_schedule
-        if memo is not None:
-            request.memo = memo
-        if search_attributes is not None:
-            request.search_attributes = search_attributes
-        if header is not None:
-            request.header = header
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/SignalWithStartWorkflowExecution",
             request,
@@ -1452,27 +1108,13 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def reset_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_execution: Optional[v1.WorkflowExecution] = None,
-        reason: str = "",
-        workflow_task_finish_event_id: int = 0,
-        request_id: str = "",
+        self, *, request: ResetWorkflowExecutionRequest
     ) -> ResetWorkflowExecutionResponse:
         """
         ResetWorkflowExecution reset an existing workflow execution to
         WorkflowTaskCompleted event(exclusive). And it will immediately
         terminating the current execution instance.
         """
-
-        request = ResetWorkflowExecutionRequest()
-        request.namespace = namespace
-        if workflow_execution is not None:
-            request.workflow_execution = workflow_execution
-        request.reason = reason
-        request.workflow_task_finish_event_id = workflow_task_finish_event_id
-        request.request_id = request_id
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ResetWorkflowExecution",
@@ -1481,28 +1123,13 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def terminate_workflow_execution(
-        self,
-        *,
-        namespace: str = "",
-        workflow_execution: Optional[v1.WorkflowExecution] = None,
-        reason: str = "",
-        details: Optional[v1.Payloads] = None,
-        identity: str = "",
+        self, *, request: TerminateWorkflowExecutionRequest
     ) -> TerminateWorkflowExecutionResponse:
         """
         TerminateWorkflowExecution terminates an existing workflow execution by
         recording WorkflowExecutionTerminated event in the history and
         immediately terminating the execution instance.
         """
-
-        request = TerminateWorkflowExecutionRequest()
-        request.namespace = namespace
-        if workflow_execution is not None:
-            request.workflow_execution = workflow_execution
-        request.reason = reason
-        if details is not None:
-            request.details = details
-        request.identity = identity
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/TerminateWorkflowExecution",
@@ -1511,30 +1138,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_open_workflow_executions(
-        self,
-        *,
-        namespace: str = "",
-        maximum_page_size: int = 0,
-        next_page_token: bytes = b"",
-        start_time_filter: Optional[v1.StartTimeFilter] = None,
-        execution_filter: Optional[v1.WorkflowExecutionFilter] = None,
-        type_filter: Optional[v1.WorkflowTypeFilter] = None,
+        self, *, request: ListOpenWorkflowExecutionsRequest
     ) -> ListOpenWorkflowExecutionsResponse:
         """
         ListOpenWorkflowExecutions is a visibility API to list the open
         executions in a specific namespace.
         """
-
-        request = ListOpenWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.maximum_page_size = maximum_page_size
-        request.next_page_token = next_page_token
-        if start_time_filter is not None:
-            request.start_time_filter = start_time_filter
-        if execution_filter is not None:
-            request.execution_filter = execution_filter
-        if type_filter is not None:
-            request.type_filter = type_filter
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListOpenWorkflowExecutions",
@@ -1543,33 +1152,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_closed_workflow_executions(
-        self,
-        *,
-        namespace: str = "",
-        maximum_page_size: int = 0,
-        next_page_token: bytes = b"",
-        start_time_filter: Optional[v1.StartTimeFilter] = None,
-        execution_filter: Optional[v1.WorkflowExecutionFilter] = None,
-        type_filter: Optional[v1.WorkflowTypeFilter] = None,
-        status_filter: Optional[v1.StatusFilter] = None,
+        self, *, request: ListClosedWorkflowExecutionsRequest
     ) -> ListClosedWorkflowExecutionsResponse:
         """
         ListClosedWorkflowExecutions is a visibility API to list the closed
         executions in a specific namespace.
         """
-
-        request = ListClosedWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.maximum_page_size = maximum_page_size
-        request.next_page_token = next_page_token
-        if start_time_filter is not None:
-            request.start_time_filter = start_time_filter
-        if execution_filter is not None:
-            request.execution_filter = execution_filter
-        if type_filter is not None:
-            request.type_filter = type_filter
-        if status_filter is not None:
-            request.status_filter = status_filter
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListClosedWorkflowExecutions",
@@ -1578,23 +1166,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_workflow_executions(
-        self,
-        *,
-        namespace: str = "",
-        page_size: int = 0,
-        next_page_token: bytes = b"",
-        query: str = "",
+        self, *, request: ListWorkflowExecutionsRequest
     ) -> ListWorkflowExecutionsResponse:
         """
         ListWorkflowExecutions is a visibility API to list workflow executions
         in a specific namespace.
         """
-
-        request = ListWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.page_size = page_size
-        request.next_page_token = next_page_token
-        request.query = query
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListWorkflowExecutions",
@@ -1603,23 +1180,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_archived_workflow_executions(
-        self,
-        *,
-        namespace: str = "",
-        page_size: int = 0,
-        next_page_token: bytes = b"",
-        query: str = "",
+        self, *, request: ListArchivedWorkflowExecutionsRequest
     ) -> ListArchivedWorkflowExecutionsResponse:
         """
         ListArchivedWorkflowExecutions is a visibility API to list archived
         workflow executions in a specific namespace.
         """
-
-        request = ListArchivedWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.page_size = page_size
-        request.next_page_token = next_page_token
-        request.query = query
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListArchivedWorkflowExecutions",
@@ -1628,23 +1194,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def scan_workflow_executions(
-        self,
-        *,
-        namespace: str = "",
-        page_size: int = 0,
-        next_page_token: bytes = b"",
-        query: str = "",
+        self, *, request: ScanWorkflowExecutionsRequest
     ) -> ScanWorkflowExecutionsResponse:
         """
         ScanWorkflowExecutions is a visibility API to list large amount of
         workflow executions in a specific namespace without order.
         """
-
-        request = ScanWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.page_size = page_size
-        request.next_page_token = next_page_token
-        request.query = query
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ScanWorkflowExecutions",
@@ -1653,16 +1208,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def count_workflow_executions(
-        self, *, namespace: str = "", query: str = ""
+        self, *, request: CountWorkflowExecutionsRequest
     ) -> CountWorkflowExecutionsResponse:
         """
         CountWorkflowExecutions is a visibility API to count of workflow
         executions in a specific namespace.
         """
-
-        request = CountWorkflowExecutionsRequest()
-        request.namespace = namespace
-        request.query = query
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/CountWorkflowExecutions",
@@ -1676,8 +1227,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         could be used in list APIs
         """
 
-        request = GetSearchAttributesRequest()
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/GetSearchAttributes",
             request,
@@ -1685,13 +1234,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def respond_query_task_completed(
-        self,
-        *,
-        task_token: bytes = b"",
-        completed_type: v1.QueryResultType = 0,
-        query_result: Optional[v1.Payloads] = None,
-        error_message: str = "",
-        worker_version_info: Optional[v1.WorkerVersionInfo] = None,
+        self, *, request: RespondQueryTaskCompletedRequest
     ) -> RespondQueryTaskCompletedResponse:
         """
         RespondQueryTaskCompleted is called by application worker to complete a
@@ -1701,15 +1244,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         client as a response to 'QueryWorkflow' API call.
         """
 
-        request = RespondQueryTaskCompletedRequest()
-        request.task_token = task_token
-        request.completed_type = completed_type
-        if query_result is not None:
-            request.query_result = query_result
-        request.error_message = error_message
-        if worker_version_info is not None:
-            request.worker_version_info = worker_version_info
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/RespondQueryTaskCompleted",
             request,
@@ -1717,7 +1251,7 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def reset_sticky_task_queue(
-        self, *, namespace: str = "", execution: Optional[v1.WorkflowExecution] = None
+        self, *, request: ResetStickyTaskQueueRequest
     ) -> ResetStickyTaskQueueResponse:
         """
         ResetStickyTaskQueue resets the sticky task queue related information
@@ -1726,11 +1260,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         4. ClientFeatureVersion 5. ClientImpl
         """
 
-        request = ResetStickyTaskQueueRequest()
-        request.namespace = namespace
-        if execution is not None:
-            request.execution = execution
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ResetStickyTaskQueue",
             request,
@@ -1738,24 +1267,11 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def query_workflow(
-        self,
-        *,
-        namespace: str = "",
-        execution: Optional[v1.WorkflowExecution] = None,
-        query: Optional[v1.WorkflowQuery] = None,
-        query_reject_condition: v1.QueryRejectCondition = 0,
+        self, *, request: QueryWorkflowRequest
     ) -> QueryWorkflowResponse:
         """
         QueryWorkflow returns query result for a specified workflow execution
         """
-
-        request = QueryWorkflowRequest()
-        request.namespace = namespace
-        if execution is not None:
-            request.execution = execution
-        if query is not None:
-            request.query = query
-        request.query_reject_condition = query_reject_condition
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/QueryWorkflow",
@@ -1764,17 +1280,12 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def describe_workflow_execution(
-        self, *, namespace: str = "", execution: Optional[v1.WorkflowExecution] = None
+        self, *, request: DescribeWorkflowExecutionRequest
     ) -> DescribeWorkflowExecutionResponse:
         """
         DescribeWorkflowExecution returns information about the specified
         workflow execution.
         """
-
-        request = DescribeWorkflowExecutionRequest()
-        request.namespace = namespace
-        if execution is not None:
-            request.execution = execution
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/DescribeWorkflowExecution",
@@ -1783,25 +1294,13 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def describe_task_queue(
-        self,
-        *,
-        namespace: str = "",
-        task_queue: Optional[v1.TaskQueue] = None,
-        task_queue_type: v1.TaskQueueType = 0,
-        include_task_queue_status: bool = False,
+        self, *, request: DescribeTaskQueueRequest
     ) -> DescribeTaskQueueResponse:
         """
         DescribeTaskQueue returns information about the target task queue,
         right now this API returns the pollers which polled this task queue in
         last few minutes.
         """
-
-        request = DescribeTaskQueueRequest()
-        request.namespace = namespace
-        if task_queue is not None:
-            request.task_queue = task_queue
-        request.task_queue_type = task_queue_type
-        request.include_task_queue_status = include_task_queue_status
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/DescribeTaskQueue",
@@ -1812,8 +1311,6 @@ class WorkflowServiceStub(betterproto.ServiceStub):
     async def get_cluster_info(self) -> GetClusterInfoResponse:
         """GetClusterInfo returns information about temporal cluster"""
 
-        request = GetClusterInfoRequest()
-
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/GetClusterInfo",
             request,
@@ -1821,12 +1318,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         )
 
     async def list_task_queue_partitions(
-        self, *, namespace: str = "", task_queue: Optional[v1.TaskQueue] = None
+        self, *, request: ListTaskQueuePartitionsRequest
     ) -> ListTaskQueuePartitionsResponse:
-        request = ListTaskQueuePartitionsRequest()
-        request.namespace = namespace
-        if task_queue is not None:
-            request.task_queue = task_queue
 
         return await self._unary_unary(
             "/temporal.api.workflowservice.v1.WorkflowService/ListTaskQueuePartitions",

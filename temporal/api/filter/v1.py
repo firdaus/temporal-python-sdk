@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import betterproto
 
-from .temporal.api.enums import v1
+from temporal.api.enums import v1 as v1enums
 
 
 @dataclass
@@ -27,4 +27,4 @@ class StartTimeFilter(betterproto.Message):
 
 @dataclass
 class StatusFilter(betterproto.Message):
-    status: v1.WorkflowExecutionStatus = betterproto.enum_field(1)
+    status: v1enums.WorkflowExecutionStatus = betterproto.enum_field(1)
