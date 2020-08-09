@@ -2,7 +2,8 @@
 # sources: temporal/api/workflow/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List
 
 import betterproto
 
@@ -16,17 +17,13 @@ from temporal.api.taskqueue import v1 as v1taskqueue
 class WorkflowExecutionInfo(betterproto.Message):
     execution: v1common.WorkflowExecution = betterproto.message_field(1)
     type: v1common.WorkflowType = betterproto.message_field(2)
-    start_time: Optional[int] = betterproto.message_field(
-        3, wraps=betterproto.TYPE_INT64
-    )
-    close_time: Optional[int] = betterproto.message_field(
-        4, wraps=betterproto.TYPE_INT64
-    )
+    start_time: datetime = betterproto.message_field(3)
+    close_time: datetime = betterproto.message_field(4)
     status: v1enums.WorkflowExecutionStatus = betterproto.enum_field(5)
     history_length: int = betterproto.int64_field(6)
     parent_namespace_id: str = betterproto.string_field(7)
     parent_execution: v1common.WorkflowExecution = betterproto.message_field(8)
-    execution_time: int = betterproto.int64_field(9)
+    execution_time: datetime = betterproto.message_field(9)
     memo: v1common.Memo = betterproto.message_field(10)
     search_attributes: v1common.SearchAttributes = betterproto.message_field(11)
     auto_reset_points: "ResetPoints" = betterproto.message_field(12)
@@ -36,9 +33,9 @@ class WorkflowExecutionInfo(betterproto.Message):
 @dataclass
 class WorkflowExecutionConfig(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(1)
-    workflow_execution_timeout_seconds: int = betterproto.int32_field(2)
-    workflow_run_timeout_seconds: int = betterproto.int32_field(3)
-    workflow_task_timeout_seconds: int = betterproto.int32_field(4)
+    workflow_execution_timeout: timedelta = betterproto.message_field(2)
+    workflow_run_timeout: timedelta = betterproto.message_field(3)
+    default_workflow_task_timeout: timedelta = betterproto.message_field(4)
 
 
 @dataclass
@@ -47,12 +44,12 @@ class PendingActivityInfo(betterproto.Message):
     activity_type: v1common.ActivityType = betterproto.message_field(2)
     state: v1enums.PendingActivityState = betterproto.enum_field(3)
     heartbeat_details: v1common.Payloads = betterproto.message_field(4)
-    last_heartbeat_timestamp: int = betterproto.int64_field(5)
-    last_started_timestamp: int = betterproto.int64_field(6)
+    last_heartbeat_time: datetime = betterproto.message_field(5)
+    last_started_time: datetime = betterproto.message_field(6)
     attempt: int = betterproto.int32_field(7)
     maximum_attempts: int = betterproto.int32_field(8)
-    scheduled_timestamp: int = betterproto.int64_field(9)
-    expiration_timestamp: int = betterproto.int64_field(10)
+    scheduled_time: datetime = betterproto.message_field(9)
+    expiration_time: datetime = betterproto.message_field(10)
     last_failure: v1failure.Failure = betterproto.message_field(11)
     last_worker_identity: str = betterproto.string_field(12)
 
@@ -77,8 +74,10 @@ class ResetPointInfo(betterproto.Message):
     binary_checksum: str = betterproto.string_field(1)
     run_id: str = betterproto.string_field(2)
     first_workflow_task_completed_id: int = betterproto.int64_field(3)
-    create_time_nano: int = betterproto.int64_field(4)
-    # The time that the run is deleted due to retention.
-    expire_time_nano: int = betterproto.int64_field(5)
+    create_time: datetime = betterproto.message_field(4)
+    # (-- api-linter: core::0214::resource-expiry=disabled     aip.dev/not-
+    # precedent: TTL is not defined for ResetPointInfo. --) The time that the run
+    # is deleted due to retention.
+    expire_time: datetime = betterproto.message_field(5)
     # false if the reset point has pending childWFs/reqCancels/signalExternals.
     resettable: bool = betterproto.bool_field(6)

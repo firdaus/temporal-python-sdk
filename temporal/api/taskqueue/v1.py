@@ -2,6 +2,7 @@
 # sources: temporal/api/taskqueue/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Optional
 
 import betterproto
@@ -47,7 +48,7 @@ class TaskQueuePartitionMetadata(betterproto.Message):
 @dataclass
 class PollerInfo(betterproto.Message):
     # Unix Nano
-    last_access_time: int = betterproto.int64_field(1)
+    last_access_time: datetime = betterproto.message_field(1)
     identity: str = betterproto.string_field(2)
     rate_per_second: float = betterproto.double_field(3)
 
@@ -55,4 +56,6 @@ class PollerInfo(betterproto.Message):
 @dataclass
 class StickyExecutionAttributes(betterproto.Message):
     worker_task_queue: "TaskQueue" = betterproto.message_field(1)
-    schedule_to_start_timeout_seconds: int = betterproto.int32_field(2)
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --)
+    schedule_to_start_timeout: timedelta = betterproto.message_field(2)

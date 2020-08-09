@@ -2,6 +2,7 @@
 # sources: temporal/api/common/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Dict, List
 
 import betterproto
@@ -69,7 +70,7 @@ class ActivityType(betterproto.Message):
 class RetryPolicy(betterproto.Message):
     # Interval of the first retry. If retryBackoffCoefficient is 1.0 then it is
     # used for all retries.
-    initial_interval_in_seconds: int = betterproto.int32_field(1)
+    initial_interval: timedelta = betterproto.message_field(1)
     # Coefficient used to calculate the next retry interval. The next retry
     # interval is previous interval multiplied by the coefficient. Must be 1 or
     # larger.
@@ -77,7 +78,7 @@ class RetryPolicy(betterproto.Message):
     # Maximum interval between retries. Exponential backoff leads to interval
     # increase. This value is the cap of the increase. Default is 100x of the
     # initial interval.
-    maximum_interval_in_seconds: int = betterproto.int32_field(3)
+    maximum_interval: timedelta = betterproto.message_field(3)
     # Maximum number of attempts. When exceeded the retries stop even if not
     # expired yet. 1 disables retries. 0 means unlimited (up to the timeouts)
     maximum_attempts: int = betterproto.int32_field(4)

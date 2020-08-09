@@ -2,7 +2,8 @@
 # sources: temporal/api/namespace/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
-from typing import Dict, Optional
+from datetime import datetime, timedelta
+from typing import Dict
 
 import betterproto
 
@@ -24,19 +25,16 @@ class NamespaceInfo(betterproto.Message):
 
 @dataclass
 class NamespaceConfig(betterproto.Message):
-    workflow_execution_retention_period_in_days: int = betterproto.int32_field(1)
-    emit_metric: Optional[bool] = betterproto.message_field(
-        2, wraps=betterproto.TYPE_BOOL
-    )
-    bad_binaries: "BadBinaries" = betterproto.message_field(3)
+    workflow_execution_retention_ttl: timedelta = betterproto.message_field(1)
+    bad_binaries: "BadBinaries" = betterproto.message_field(2)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(4)
-    history_archival_uri: str = betterproto.string_field(5)
+    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(3)
+    history_archival_uri: str = betterproto.string_field(4)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(6)
-    visibility_archival_uri: str = betterproto.string_field(7)
+    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(5)
+    visibility_archival_uri: str = betterproto.string_field(6)
 
 
 @dataclass
@@ -50,7 +48,7 @@ class BadBinaries(betterproto.Message):
 class BadBinaryInfo(betterproto.Message):
     reason: str = betterproto.string_field(1)
     operator: str = betterproto.string_field(2)
-    create_time_nano: int = betterproto.int64_field(3)
+    create_time: datetime = betterproto.message_field(3)
 
 
 @dataclass

@@ -2,6 +2,7 @@
 # sources: temporal/api/filter/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
+from datetime import datetime
 
 import betterproto
 
@@ -21,8 +22,8 @@ class WorkflowTypeFilter(betterproto.Message):
 
 @dataclass
 class StartTimeFilter(betterproto.Message):
-    earliest_time: int = betterproto.int64_field(1)
-    latest_time: int = betterproto.int64_field(2)
+    earliest_time: datetime = betterproto.message_field(1)
+    latest_time: datetime = betterproto.message_field(2)
 
 
 @dataclass

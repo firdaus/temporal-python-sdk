@@ -2,6 +2,7 @@
 # sources: temporal/api/workflowservice/v1/request_response.proto, temporal/api/workflowservice/v1/service.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import betterproto
@@ -26,26 +27,25 @@ class RegisterNamespaceRequest(betterproto.Message):
     name: str = betterproto.string_field(1)
     description: str = betterproto.string_field(2)
     owner_email: str = betterproto.string_field(3)
-    workflow_execution_retention_period_days: int = betterproto.int32_field(4)
-    emit_metric: bool = betterproto.bool_field(5)
+    workflow_execution_retention_period: timedelta = betterproto.message_field(4)
     clusters: List[v1replication.ClusterReplicationConfig] = betterproto.message_field(
-        6
+        5
     )
-    active_cluster_name: str = betterproto.string_field(7)
+    active_cluster_name: str = betterproto.string_field(6)
     # A key-value map for any customized purpose.
     data: Dict[str, str] = betterproto.map_field(
-        8, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+        7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
-    security_token: str = betterproto.string_field(9)
-    is_global_namespace: bool = betterproto.bool_field(10)
+    security_token: str = betterproto.string_field(8)
+    is_global_namespace: bool = betterproto.bool_field(9)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(11)
-    history_archival_uri: str = betterproto.string_field(12)
+    history_archival_state: v1enums.ArchivalState = betterproto.enum_field(10)
+    history_archival_uri: str = betterproto.string_field(11)
     # If unspecified (ARCHIVAL_STATE_UNSPECIFIED) then default server
     # configuration is used.
-    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(13)
-    visibility_archival_uri: str = betterproto.string_field(14)
+    visibility_archival_state: v1enums.ArchivalState = betterproto.enum_field(12)
+    visibility_archival_uri: str = betterproto.string_field(13)
 
 
 @dataclass
@@ -131,11 +131,11 @@ class StartWorkflowExecutionRequest(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
     input: v1common.Payloads = betterproto.message_field(5)
     # Total workflow execution timeout including retries and continue as new.
-    workflow_execution_timeout_seconds: int = betterproto.int32_field(6)
+    workflow_execution_timeout: timedelta = betterproto.message_field(6)
     # Timeout of a single workflow run.
-    workflow_run_timeout_seconds: int = betterproto.int32_field(7)
+    workflow_run_timeout: timedelta = betterproto.message_field(7)
     # Timeout of a single workflow task.
-    workflow_task_timeout_seconds: int = betterproto.int32_field(8)
+    workflow_task_timeout: timedelta = betterproto.message_field(8)
     identity: str = betterproto.string_field(9)
     request_id: str = betterproto.string_field(10)
     # Default: WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE.
@@ -190,14 +190,14 @@ class PollWorkflowTaskQueueResponse(betterproto.Message):
     workflow_type: v1common.WorkflowType = betterproto.message_field(3)
     previous_started_event_id: int = betterproto.int64_field(4)
     started_event_id: int = betterproto.int64_field(5)
-    attempt: int = betterproto.int64_field(6)
+    attempt: int = betterproto.int32_field(6)
     backlog_count_hint: int = betterproto.int64_field(7)
     history: v1history.History = betterproto.message_field(8)
     next_page_token: bytes = betterproto.bytes_field(9)
     query: v1query.WorkflowQuery = betterproto.message_field(10)
     workflow_execution_task_queue: v1taskqueue.TaskQueue = betterproto.message_field(11)
-    scheduled_timestamp: int = betterproto.int64_field(12)
-    started_timestamp: int = betterproto.int64_field(13)
+    scheduled_time: datetime = betterproto.message_field(12)
+    started_time: datetime = betterproto.message_field(13)
     queries: Dict[str, v1query.WorkflowQuery] = betterproto.map_field(
         14, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )
@@ -257,17 +257,17 @@ class PollActivityTaskQueueResponse(betterproto.Message):
     header: v1common.Header = betterproto.message_field(7)
     input: v1common.Payloads = betterproto.message_field(8)
     heartbeat_details: v1common.Payloads = betterproto.message_field(9)
-    scheduled_timestamp: int = betterproto.int64_field(10)
-    scheduled_timestamp_this_attempt: int = betterproto.int64_field(11)
-    started_timestamp: int = betterproto.int64_field(12)
+    scheduled_time: datetime = betterproto.message_field(10)
+    current_attempt_scheduled_time: datetime = betterproto.message_field(11)
+    started_time: datetime = betterproto.message_field(12)
     attempt: int = betterproto.int32_field(13)
     # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
     # precedent: "to" is used to indicate interval. --)
-    schedule_to_close_timeout_seconds: int = betterproto.int32_field(14)
+    schedule_to_close_timeout: timedelta = betterproto.message_field(14)
     # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
     # precedent: "to" is used to indicate interval. --)
-    start_to_close_timeout_seconds: int = betterproto.int32_field(15)
-    heartbeat_timeout_seconds: int = betterproto.int32_field(16)
+    start_to_close_timeout: timedelta = betterproto.message_field(15)
+    heartbeat_timeout: timedelta = betterproto.message_field(16)
     # This is an actual retry policy the service uses. It can be different from
     # the one provided (or not) during activity scheduling as the service can
     # override the provided one in case its values are not specified or exceed
@@ -420,11 +420,11 @@ class SignalWithStartWorkflowExecutionRequest(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
     input: v1common.Payloads = betterproto.message_field(5)
     # Total workflow execution timeout including retries and continue as new
-    workflow_execution_timeout_seconds: int = betterproto.int32_field(6)
+    workflow_execution_timeout: timedelta = betterproto.message_field(6)
     # Timeout of a single workflow run
-    workflow_run_timeout_seconds: int = betterproto.int32_field(7)
+    workflow_run_timeout: timedelta = betterproto.message_field(7)
     # Timeout of a single workflow task
-    workflow_task_timeout_seconds: int = betterproto.int32_field(8)
+    workflow_task_timeout: timedelta = betterproto.message_field(8)
     identity: str = betterproto.string_field(9)
     request_id: str = betterproto.string_field(10)
     workflow_id_reuse_policy: v1enums.WorkflowIdReusePolicy = betterproto.enum_field(11)
@@ -917,6 +917,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         self, *, request: RecordActivityTaskHeartbeatByIdRequest
     ) -> RecordActivityTaskHeartbeatByIdResponse:
         """
+        (-- api-linter: core::0136::prepositions=disabled     aip.dev/not-
+        precedent: "By" is used to indicate request type. --)
         RecordActivityTaskHeartbeatById is called by application worker while
         it is processing an ActivityTask.  If worker fails to heartbeat within
         'heartbeatTimeoutSeconds' interval for the ActivityTask, then it will
@@ -957,6 +959,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         self, *, request: RespondActivityTaskCompletedByIdRequest
     ) -> RespondActivityTaskCompletedByIdResponse:
         """
+        (-- api-linter: core::0136::prepositions=disabled     aip.dev/not-
+        precedent: "By" is used to indicate request type. --)
         RespondActivityTaskCompletedById is called by application worker when
         it is done processing an ActivityTask. It will result in a new
         'ActivityTaskCompleted' event being written to the workflow history and
@@ -997,6 +1001,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         self, *, request: RespondActivityTaskFailedByIdRequest
     ) -> RespondActivityTaskFailedByIdResponse:
         """
+        (-- api-linter: core::0136::prepositions=disabled     aip.dev/not-
+        precedent: "By" is used to indicate request type. --)
         RespondActivityTaskFailedById is called by application worker when it
         is done processing an ActivityTask. It will result in a new
         'ActivityTaskFailed' event being written to the workflow history and a
@@ -1037,6 +1043,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         self, *, request: RespondActivityTaskCanceledByIdRequest
     ) -> RespondActivityTaskCanceledByIdResponse:
         """
+        (-- api-linter: core::0136::prepositions=disabled     aip.dev/not-
+        precedent: "By" is used to indicate request type. --)
         RespondActivityTaskCanceledById is called by application worker when it
         is successfully canceled an ActivityTask. It will result in a new
         'ActivityTaskCanceled' event being written to the workflow history and
@@ -1092,6 +1100,8 @@ class WorkflowServiceStub(betterproto.ServiceStub):
         self, *, request: SignalWithStartWorkflowExecutionRequest
     ) -> SignalWithStartWorkflowExecutionResponse:
         """
+        (-- api-linter: core::0136::prepositions=disabled     aip.dev/not-
+        precedent: "With" is used to indicate combined operation. --)
         SignalWithStartWorkflowExecution is used to ensure sending signal to a
         workflow. If the workflow is running, this results in
         WorkflowExecutionSignaled event being recorded in the history and a
@@ -1221,7 +1231,9 @@ class WorkflowServiceStub(betterproto.ServiceStub):
             CountWorkflowExecutionsResponse,
         )
 
-    async def get_search_attributes(self) -> GetSearchAttributesResponse:
+    async def get_search_attributes(
+        self, *, request: GetSearchAttributesRequest
+    ) -> GetSearchAttributesResponse:
         """
         GetSearchAttributes is a visibility API to get all legal keys that
         could be used in list APIs
@@ -1308,7 +1320,9 @@ class WorkflowServiceStub(betterproto.ServiceStub):
             DescribeTaskQueueResponse,
         )
 
-    async def get_cluster_info(self) -> GetClusterInfoResponse:
+    async def get_cluster_info(
+        self, *, request: GetClusterInfoRequest
+    ) -> GetClusterInfoResponse:
         """GetClusterInfo returns information about temporal cluster"""
 
         return await self._unary_unary(

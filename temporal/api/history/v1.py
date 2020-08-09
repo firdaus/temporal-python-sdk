@@ -2,6 +2,7 @@
 # sources: temporal/api/history/v1/message.proto
 # plugin: python-betterproto
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 import betterproto
@@ -22,11 +23,11 @@ class WorkflowExecutionStartedEventAttributes(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(5)
     input: v1common.Payloads = betterproto.message_field(6)
     # Total workflow execution timeout including retries and continue as new.
-    workflow_execution_timeout_seconds: int = betterproto.int32_field(7)
+    workflow_execution_timeout: timedelta = betterproto.message_field(7)
     # Timeout of a single workflow run.
-    workflow_run_timeout_seconds: int = betterproto.int32_field(8)
+    workflow_run_timeout: timedelta = betterproto.message_field(8)
     # Timeout of a single workflow task.
-    workflow_task_timeout_seconds: int = betterproto.int32_field(9)
+    workflow_task_timeout: timedelta = betterproto.message_field(9)
     continued_execution_run_id: str = betterproto.string_field(10)
     initiator: v1enums.ContinueAsNewInitiator = betterproto.enum_field(11)
     continued_failure: v1failure.Failure = betterproto.message_field(12)
@@ -40,9 +41,9 @@ class WorkflowExecutionStartedEventAttributes(betterproto.Message):
     attempt: int = betterproto.int32_field(18)
     # The absolute time at which workflow is timed out. This time is passed
     # without change to the next run/retry of a workflow.
-    workflow_execution_expiration_timestamp: int = betterproto.int64_field(19)
+    workflow_execution_expiration_time: datetime = betterproto.message_field(19)
     cron_schedule: str = betterproto.string_field(20)
-    first_workflow_task_backoff_seconds: int = betterproto.int32_field(21)
+    first_workflow_task_backoff: timedelta = betterproto.message_field(21)
     memo: v1common.Memo = betterproto.message_field(22)
     search_attributes: v1common.SearchAttributes = betterproto.message_field(23)
     prev_auto_reset_points: v1workflow.ResetPoints = betterproto.message_field(24)
@@ -75,11 +76,11 @@ class WorkflowExecutionContinuedAsNewEventAttributes(betterproto.Message):
     input: v1common.Payloads = betterproto.message_field(4)
     # workflow_execution_timeout is omitted as it shouldn'be overridden from
     # within a workflow. Timeout of a single workflow run.
-    workflow_run_timeout_seconds: int = betterproto.int32_field(5)
+    workflow_run_timeout: timedelta = betterproto.message_field(5)
     # Timeout of a single workflow task.
-    workflow_task_timeout_seconds: int = betterproto.int32_field(6)
+    workflow_task_timeout: timedelta = betterproto.message_field(6)
     workflow_task_completed_event_id: int = betterproto.int64_field(7)
-    backoff_start_interval_in_seconds: int = betterproto.int32_field(8)
+    backoff_start_interval: timedelta = betterproto.message_field(8)
     initiator: v1enums.ContinueAsNewInitiator = betterproto.enum_field(9)
     failure: v1failure.Failure = betterproto.message_field(10)
     last_completion_result: v1common.Payloads = betterproto.message_field(11)
@@ -91,8 +92,10 @@ class WorkflowExecutionContinuedAsNewEventAttributes(betterproto.Message):
 @dataclass
 class WorkflowTaskScheduledEventAttributes(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(1)
-    start_to_close_timeout_seconds: int = betterproto.int32_field(2)
-    attempt: int = betterproto.int64_field(3)
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --)
+    start_to_close_timeout: timedelta = betterproto.message_field(2)
+    attempt: int = betterproto.int32_field(3)
 
 
 @dataclass
@@ -139,22 +142,27 @@ class ActivityTaskScheduledEventAttributes(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
     header: v1common.Header = betterproto.message_field(5)
     input: v1common.Payloads = betterproto.message_field(6)
-    # Indicates how long the caller is willing to wait for an activity
-    # completion. Limits for how long retries are happening. Either this or
-    # start_to_close_timeout_seconds must be specified.
-    schedule_to_close_timeout_seconds: int = betterproto.int32_field(7)
-    # Limits time an activity task can stay in a task queue before a worker picks
-    # it up. This timeout is always non retryable as all a retry would achieve is
-    # to put it back into the same queue. Defaults to
-    # schedule_to_close_timeout_seconds or workflow execution timeout if not
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --) Indicates how long the
+    # caller is willing to wait for an activity completion. Limits for how long
+    # retries are happening. Either this or start_to_close_timeout_seconds must
+    # be specified.
+    schedule_to_close_timeout: timedelta = betterproto.message_field(7)
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --) Limits time an activity
+    # task can stay in a task queue before a worker picks it up. This timeout is
+    # always non retryable as all a retry would achieve is to put it back into
+    # the same queue. Defaults to schedule_to_close_timeout_seconds or workflow
+    # execution timeout if not specified.
+    schedule_to_start_timeout: timedelta = betterproto.message_field(8)
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --) Maximum time an activity
+    # is allowed to execute after a pick up by a worker. This timeout is always
+    # retryable. Either this or schedule_to_close_timeout_seconds must be
     # specified.
-    schedule_to_start_timeout_seconds: int = betterproto.int32_field(8)
-    # Maximum time an activity is allowed to execute after a pick up by a worker.
-    # This timeout is always retryable. Either this or
-    # schedule_to_close_timeout_seconds must be specified.
-    start_to_close_timeout_seconds: int = betterproto.int32_field(9)
+    start_to_close_timeout: timedelta = betterproto.message_field(9)
     # Maximum time between successful worker heartbeats.
-    heartbeat_timeout_seconds: int = betterproto.int32_field(10)
+    heartbeat_timeout: timedelta = betterproto.message_field(10)
     workflow_task_completed_event_id: int = betterproto.int64_field(11)
     # Activities are provided by a default retry policy controlled through the
     # service dynamic configuration. Retries are happening up to
@@ -217,7 +225,9 @@ class ActivityTaskCanceledEventAttributes(betterproto.Message):
 @dataclass
 class TimerStartedEventAttributes(betterproto.Message):
     timer_id: str = betterproto.string_field(1)
-    start_to_fire_timeout_seconds: int = betterproto.int64_field(2)
+    # (-- api-linter: core::0140::prepositions=disabled     aip.dev/not-
+    # precedent: "to" is used to indicate interval. --)
+    start_to_fire_timeout: timedelta = betterproto.message_field(2)
     workflow_task_completed_event_id: int = betterproto.int64_field(3)
 
 
@@ -351,11 +361,11 @@ class StartChildWorkflowExecutionInitiatedEventAttributes(betterproto.Message):
     task_queue: v1taskqueue.TaskQueue = betterproto.message_field(4)
     input: v1common.Payloads = betterproto.message_field(5)
     # Total workflow execution timeout including retries and continue as new.
-    workflow_execution_timeout_seconds: int = betterproto.int32_field(6)
+    workflow_execution_timeout: timedelta = betterproto.message_field(6)
     # Timeout of a single workflow run.
-    workflow_run_timeout_seconds: int = betterproto.int32_field(7)
+    workflow_run_timeout: timedelta = betterproto.message_field(7)
     # Timeout of a single workflow task.
-    workflow_task_timeout_seconds: int = betterproto.int32_field(8)
+    workflow_task_timeout: timedelta = betterproto.message_field(8)
     # Default: PARENT_CLOSE_POLICY_TERMINATE.
     parent_close_policy: v1enums.ParentClosePolicy = betterproto.enum_field(9)
     control: str = betterproto.string_field(10)
@@ -442,7 +452,7 @@ class ChildWorkflowExecutionTerminatedEventAttributes(betterproto.Message):
 @dataclass
 class HistoryEvent(betterproto.Message):
     event_id: int = betterproto.int64_field(1)
-    timestamp: int = betterproto.int64_field(2)
+    event_time: datetime = betterproto.message_field(2)
     event_type: v1enums.EventType = betterproto.enum_field(3)
     version: int = betterproto.int64_field(4)
     task_id: int = betterproto.int64_field(5)
