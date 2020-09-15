@@ -57,14 +57,13 @@ class Workflow:
     def current_time_millis() -> int:
         from .decision_loop import ITask
         task: ITask = ITask.current()
-        return task.decider.decision_context.current_time_millis()
+        return int(task.decider.decision_context.current_time_millis().timestamp() * 1000)
 
     @staticmethod
     def now() -> datetime.datetime:
         from .decision_loop import ITask
         task: ITask = ITask.current()
-        now_in_ms = task.decider.decision_context.current_time_millis()
-        return datetime.datetime.fromtimestamp(now_in_ms / 1000)
+        return task.decider.decision_context.current_time_millis()
 
     @staticmethod
     def random_uuid() -> uuid.UUID:

@@ -485,7 +485,7 @@ class DecisionContext:
             raise Exception("workflow clock moved back")
         self.workflow_clock.set_replay_current_time_milliseconds(replay_current_time_milliseconds)
 
-    def current_time_millis(self):
+    def current_time_millis(self) -> datetime.datetime:
         return self.workflow_clock.current_time_millis()
 
     def set_replaying(self, replaying: bool):
