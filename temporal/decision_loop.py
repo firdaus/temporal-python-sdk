@@ -14,50 +14,58 @@ from asyncio.events import AbstractEventLoop
 from asyncio.futures import Future
 from asyncio.tasks import Task
 from collections import OrderedDict
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
+from time import mktime
 from typing import List, Dict, Optional, Any, Callable
 
-from more_itertools import peekable
+from more_itertools import peekable  # type: ignore
 
-from cadence.activity_method import ExecuteActivityParameters
-from cadence.cadence_types import PollForDecisionTaskRequest, TaskList, PollForDecisionTaskResponse, \
-    RespondDecisionTaskCompletedRequest, \
-    CompleteWorkflowExecutionDecisionAttributes, Decision, DecisionType, RespondDecisionTaskCompletedResponse, \
-    HistoryEvent, EventType, WorkflowType, ScheduleActivityTaskDecisionAttributes, \
-    CancelWorkflowExecutionDecisionAttributes, StartTimerDecisionAttributes, TimerFiredEventAttributes, \
-    FailWorkflowExecutionDecisionAttributes, RecordMarkerDecisionAttributes, Header, WorkflowQuery, \
-    RespondQueryTaskCompletedRequest, QueryTaskCompletedType, QueryWorkflowResponse, DecisionTaskFailedCause
-from cadence.conversions import json_to_args, args_to_json
-from cadence.decisions import DecisionId, DecisionTarget
-from cadence.exception_handling import serialize_exception, deserialize_exception
-from cadence.exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
+from .activity_method import ExecuteActivityParameters
+from .api.command.v1 import Command, CompleteWorkflowExecutionCommandAttributes, RecordMarkerCommandAttributes, \
+    FailWorkflowExecutionCommandAttributes, ScheduleActivityTaskCommandAttributes, \
+    CancelWorkflowExecutionCommandAttributes, StartTimerCommandAttributes
+from .api.common.v1 import WorkflowType, Header, Payloads
+from .api.enums.v1 import EventType, CommandType, QueryResultType, WorkflowTaskFailedCause
+from .api.history.v1 import HistoryEvent, TimerFiredEventAttributes, ActivityTaskTimedOutEventAttributes
+from .api.query.v1 import WorkflowQuery
+from .api.taskqueue.v1 import TaskQueue
+from .api.workflowservice.v1 import PollWorkflowTaskQueueRequest, PollWorkflowTaskQueueResponse, \
+    RespondWorkflowTaskCompletedRequest, RespondWorkflowTaskCompletedResponse, RespondQueryTaskCompletedRequest, \
+    QueryWorkflowResponse, QueryWorkflowRequest, WorkflowServiceStub, RespondQueryTaskCompletedResponse
+
+from .conversions import from_payloads, to_payloads
+from .decisions import DecisionId, DecisionTarget
+from .exception_handling import serialize_exception, deserialize_exception
+from .exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
     ActivityTaskTimeoutException, SignalNotFound, ActivityFailureException, QueryNotFound, QueryDidNotComplete
-from cadence.state_machines import ActivityDecisionStateMachine, DecisionStateMachine, CompleteWorkflowStateMachine, \
+from .service_helpers import get_identity, create_workflow_service
+from .state_machines import ActivityDecisionStateMachine, DecisionStateMachine, CompleteWorkflowStateMachine, \
     TimerDecisionStateMachine, MarkerDecisionStateMachine
-from cadence.tchannel import TChannelException
-from cadence.worker import Worker, StopRequestedException
-from cadence.workflow import QueryMethod
-from cadence.workflowservice import WorkflowService
+from .worker import Worker, StopRequestedException
+from .workflow import QueryMethod
+WorkflowServiceStub
 
 logger = logging.getLogger(__name__)
 
 
+# TODO: Consult implementation in the Java library
 def is_decision_event(event: HistoryEvent) -> bool:
-    decision_event_types = (EventType.ActivityTaskScheduled,
-                            EventType.StartChildWorkflowExecutionInitiated,
-                            EventType.TimerStarted,
-                            EventType.WorkflowExecutionCompleted,
-                            EventType.WorkflowExecutionFailed,
-                            EventType.WorkflowExecutionCanceled,
-                            EventType.WorkflowExecutionContinuedAsNew,
-                            EventType.ActivityTaskCancelRequested,
-                            EventType.RequestCancelActivityTaskFailed,
-                            EventType.TimerCanceled,
-                            EventType.CancelTimerFailed,
-                            EventType.RequestCancelExternalWorkflowExecutionInitiated,
-                            EventType.MarkerRecorded,
-                            EventType.SignalExternalWorkflowExecutionInitiated)
+    decision_event_types = (EventType.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
+                            EventType.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED,
+                            EventType.EVENT_TYPE_TIMER_STARTED,
+                            EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED,
+                            EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED,
+                            EventType.EVENT_TYPE_WORKFLOW_EXECUTION_CANCELED,
+                            EventType.EVENT_TYPE_WORKFLOW_EXECUTION_CONTINUED_AS_NEW,
+                            EventType.EVENT_TYPE_ACTIVITY_TASK_CANCEL_REQUESTED,
+                            # EventType.RequestCancelActivityTaskFailed,
+                            EventType.EVENT_TYPE_TIMER_CANCELED,
+                            # EventType.CancelTimerFailed,
+                            EventType.EVENT_TYPE_REQUEST_CANCEL_EXTERNAL_WORKFLOW_EXECUTION_INITIATED,
+                            EventType.EVENT_TYPE_MARKER_RECORDED,
+                            EventType.EVENT_TYPE_SIGNAL_EXTERNAL_WORKFLOW_EXECUTION_INITIATED)
     return event.event_type in decision_event_types
 
 
@@ -89,17 +97,18 @@ class HistoryHelper:
         event: HistoryEvent
         for event in events:
             event_type = event.event_type
-            if event_type == EventType.DecisionTaskStarted or not self.has_next():
-                replay_current_time_milliseconds = nano_to_milli(event.timestamp)
+            if event_type == EventType.EVENT_TYPE_WORKFLOW_TASK_STARTED or not self.has_next():
+                replay_current_time_milliseconds = event.event_time
                 if not self.has_next():
                     replay = False
                     next_decision_event_id = event.event_id + 2
                     break
                 peeked: HistoryEvent = events.peek()
                 peeked_type = peeked.event_type
-                if peeked_type == EventType.DecisionTaskTimedOut or peeked_type == EventType.DecisionTaskFailed:
+                if peeked_type == EventType.EVENT_TYPE_WORKFLOW_TASK_TIMED_OUT or peeked_type == \
+                        EventType.EVENT_TYPE_WORKFLOW_TASK_FAILED:
                     continue
-                elif peeked_type == EventType.DecisionTaskCompleted:
+                elif peeked_type == EventType.EVENT_TYPE_WORKFLOW_TASK_COMPLETED:
                     next(events)
                     next_decision_event_id = peeked.event_id + 1
                     break
@@ -122,7 +131,7 @@ class DecisionEvents:
     events: List[HistoryEvent]
     decision_events: List[HistoryEvent]
     replay: bool
-    replay_current_time_milliseconds: int
+    replay_current_time_milliseconds: datetime.datetime
     next_decision_event_id: int
     markers: List[HistoryEvent] = field(default_factory=list)
 
@@ -145,7 +154,7 @@ class Status(Enum):
     DONE = 3
 
 
-current_task = contextvars.ContextVar("current_task")
+current_task: contextvars.ContextVar = contextvars.ContextVar("current_task")
 
 
 @dataclass
@@ -364,7 +373,7 @@ class EventLoopWrapper:
 @dataclass
 class DecisionContext:
     decider: ReplayDecider
-    scheduled_activities: Dict[int, Future[bytes]] = field(default_factory=dict)
+    scheduled_activities: Dict[int, Future[Payloads]] = field(default_factory=dict)
     workflow_clock: ClockDecisionContext = None
     current_run_id: str = None
 
@@ -373,7 +382,7 @@ class DecisionContext:
             self.workflow_clock = ClockDecisionContext(self.decider, self)
 
     async def schedule_activity_task(self, parameters: ExecuteActivityParameters):
-        attr = ScheduleActivityTaskDecisionAttributes()
+        attr = ScheduleActivityTaskCommandAttributes()
         attr.activity_type = parameters.activity_type
         attr.input = parameters.input
         if parameters.heartbeat_timeout_seconds > 0:
@@ -384,8 +393,8 @@ class DecisionContext:
         attr.activity_id = parameters.activity_id
         if not attr.activity_id:
             attr.activity_id = self.decider.get_and_increment_next_id()
-        attr.task_list = TaskList()
-        attr.task_list.name = parameters.task_list
+        attr.task_queue = TaskQueue()
+        attr.task_queue.name = parameters.task_queue
 
         if parameters.retry_parameters:
             attr.retry_policy = parameters.retry_parameters.to_retry_policy()
@@ -400,16 +409,17 @@ class DecisionContext:
             raise e
         except Exception as ex:
             pass
-        ex = future.exception()
-        if ex:
+        ex1 = future.exception()
+        if ex1:
+            # TODO: test str(serialize_exception())
             activity_failure = ActivityFailureException(scheduled_event_id,
                                                         parameters.activity_type.name,
                                                         parameters.activity_id,
-                                                        serialize_exception(ex))
+                                                        str(serialize_exception(ex1)))
             raise activity_failure
         assert future.done()
-        raw_bytes = future.result()
-        return json.loads(str(raw_bytes, "utf-8"))
+        payloads: Payloads = future.result()
+        return from_payloads(payloads)
 
     async def schedule_timer(self, seconds: int):
         future = self.decider.event_loop.create_future()
@@ -447,19 +457,21 @@ class DecisionContext:
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
                 # TODO: attr.reason - what should we do with it?
-                ex = deserialize_exception(attr.details)
+                ex = deserialize_exception(attr.failure)
                 future.set_exception(ex)
             else:
                 raise NonDeterministicWorkflowException(
                     f"Trying to complete activity event {attr.scheduled_event_id} that is not in scheduled_activities")
 
     def handle_activity_task_timed_out(self, event: HistoryEvent):
-        attr = event.activity_task_timed_out_event_attributes
+        attr: ActivityTaskTimedOutEventAttributes = event.activity_task_timed_out_event_attributes
         if self.decider.handle_activity_task_closed(attr.scheduled_event_id):
             future = self.scheduled_activities.get(attr.scheduled_event_id)
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
-                ex = ActivityTaskTimeoutException(event.event_id, attr.timeout_type, attr.details)
+                # TODO: What is the replacement for timeout_type and details
+                # ex = ActivityTaskTimeoutException(event.event_id, attr.timeout_type, attr.details)
+                ex = ActivityTaskTimeoutException(event.event_id, None, None)
                 future.set_exception(ex)
             else:
                 raise NonDeterministicWorkflowException(
@@ -468,7 +480,7 @@ class DecisionContext:
     def create_timer(self, delay_seconds: int, callback: Callable):
         return self.workflow_clock.create_timer(delay_seconds, callback)
 
-    def set_replay_current_time_milliseconds(self, replay_current_time_milliseconds: int):
+    def set_replay_current_time_milliseconds(self, replay_current_time_milliseconds: datetime.datetime):
         if replay_current_time_milliseconds < self.workflow_clock.current_time_millis():
             raise Exception("workflow clock moved back")
         self.workflow_clock.set_replay_current_time_milliseconds(replay_current_time_milliseconds)
@@ -502,12 +514,12 @@ class DecisionContext:
         return generator
 
     def record_marker(self, marker_name: str, header: Header, details: bytes):
-        marker = RecordMarkerDecisionAttributes()
+        marker = RecordMarkerCommandAttributes()
         marker.marker_name = marker_name
         marker.header = header
         marker.details = details
-        decision = Decision()
-        decision.decision_type = DecisionType.RecordMarker
+        decision = Command()
+        decision.decision_type = CommandType.COMMAND_TYPE_RECORD_MARKER
         decision.record_marker_decision_attributes = marker
         next_decision_event_id = self.decider.next_decision_event_id
         decision_id = DecisionId(DecisionTarget.MARKER, next_decision_event_id)
@@ -577,7 +589,7 @@ class ReplayDecider:
         event_handler = event_handlers.get(event.event_type)
         if not event_handler:
             raise Exception(f"No event handler for event type {event.event_type.name}")
-        event_handler(self, event)
+        event_handler(self, event)  # type: ignore
 
     def handle_workflow_execution_started(self, event: HistoryEvent):
         start_event_attributes = event.workflow_execution_started_event_attributes
@@ -585,7 +597,7 @@ class ReplayDecider:
         if start_event_attributes.input is None or start_event_attributes.input == b'':
             workflow_input = []
         else:
-            workflow_input = json_to_args(start_event_attributes.input)
+            workflow_input = from_payloads(start_event_attributes.input)
         self.workflow_task = WorkflowMethodTask(task_id=self.execution_id, workflow_input=workflow_input,
                                                 worker=self.worker, workflow_type=self.workflow_type, decider=self)
         self.event_loop.run_event_loop_once()
@@ -606,39 +618,39 @@ class ReplayDecider:
 
     def complete_workflow_execution(self, ret_value):
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
-        decision = Decision()
-        attr = CompleteWorkflowExecutionDecisionAttributes()
+        decision = Command()
+        attr = CompleteWorkflowExecutionCommandAttributes()
         attr.result = json.dumps(ret_value)
         decision.complete_workflow_execution_decision_attributes = attr
-        decision.decision_type = DecisionType.CompleteWorkflowExecution
+        decision.decision_type = CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
 
     def fail_workflow_execution(self, exception):
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
-        decision = Decision()
-        fail_attributes = FailWorkflowExecutionDecisionAttributes()
+        decision = Command()
+        fail_attributes = FailWorkflowExecutionCommandAttributes()
         fail_attributes.reason = "WorkflowFailureException"
         fail_attributes.details = serialize_exception(exception)
         decision.fail_workflow_execution_decision_attributes = fail_attributes
-        decision.decision_type = DecisionType.FailWorkflowExecution
+        decision.decision_type = CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
 
     def cancel_workflow_execution(self):
         logger.info("Canceling workflow: %s", self.execution_id)
-        decision = Decision()
-        attr = CancelWorkflowExecutionDecisionAttributes()
+        decision = Command()
+        attr = CancelWorkflowExecutionCommandAttributes()
         attr.details = None
         decision.cancel_workflow_execution_decision_attributes = attr
-        decision.decision_type = DecisionType.CancelWorkflowExecution
+        decision.decision_type = CommandType.COMMAND_TYPE_CANCEL_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
 
-    def schedule_activity_task(self, schedule: ScheduleActivityTaskDecisionAttributes) -> int:
+    def schedule_activity_task(self, schedule: ScheduleActivityTaskCommandAttributes) -> int:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
         next_decision_event_id = self.next_decision_event_id
         decision_id = DecisionId(DecisionTarget.ACTIVITY, next_decision_event_id)
@@ -675,17 +687,17 @@ class ReplayDecider:
         self.decision_context.handle_activity_task_timed_out(event)
 
     def handle_decision_task_failed(self, event: HistoryEvent):
-        attr = event.decision_task_failed_event_attributes
-        if attr and attr.cause == DecisionTaskFailedCause.RESET_WORKFLOW:
+        attr = event.workflow_task_failed_event_attributes
+        if attr and attr.cause == WorkflowTaskFailedCause.WORKFLOW_TASK_FAILED_CAUSE_RESET_WORKFLOW:
             self.decision_context.set_current_run_id(attr.new_run_id)
 
     def handle_workflow_execution_signaled(self, event: HistoryEvent):
         signaled_event_attributes = event.workflow_execution_signaled_event_attributes
-        signal_input = signaled_event_attributes.input
-        if not signal_input:
+        signal_input_payloads: Payloads = signaled_event_attributes.input
+        if not signal_input_payloads:
             signal_input = []
         else:
-            signal_input = json_to_args(signal_input)
+            signal_input = from_payloads(signal_input_payloads)
 
         task = SignalMethodTask(task_id=self.execution_id,
                                 workflow_instance=self.workflow_task.workflow_instance,
@@ -710,7 +722,7 @@ class ReplayDecider:
             raise NonDeterministicWorkflowException(f"Unknown {decision_id}.")
         return result
 
-    def get_decisions(self) -> List[Decision]:
+    def get_decisions(self) -> List[Command]:
         decisions = []
         for state_machine in self.decisions.values():
             d = state_machine.get_decision()
@@ -737,7 +749,7 @@ class ReplayDecider:
         if self.workflow_task:
             self.workflow_task.destroy()
 
-    def start_timer(self, request: StartTimerDecisionAttributes):
+    def start_timer(self, request: StartTimerCommandAttributes):
         start_event_id = self.next_decision_event_id
         decision_id = DecisionId(DecisionTarget.TIMER, start_event_id)
         self.add_decision(decision_id, TimerDecisionStateMachine(decision_id, start_timer_attributes=request))
@@ -782,12 +794,12 @@ class ReplayDecider:
     def get_optional_decision_event(self, event_id: int) -> HistoryEvent:
         return self.decision_events.get_optional_decision_event(event_id)
 
-    def query(self, decision_task: PollForDecisionTaskResponse, query: WorkflowQuery) -> bytes:
-        query_args = query.query_args
+    def query(self, decision_task: PollWorkflowTaskQueueResponse, query: WorkflowQuery) -> object:
+        query_args: Payloads = query.query_args
         if query_args is None:
             args = []
         else:
-            args = json_to_args(query_args)
+            args = from_payloads(query_args)
         task = QueryMethodTask(task_id=self.execution_id,
                                workflow_instance=self.workflow_task.workflow_instance,
                                query_name=query.query_type,
@@ -815,31 +827,32 @@ def on_timer_canceled(self: ReplayDecider, event: HistoryEvent):
 
 
 event_handlers = {
-    EventType.WorkflowExecutionStarted: ReplayDecider.handle_workflow_execution_started,
-    EventType.WorkflowExecutionCancelRequested: ReplayDecider.handle_workflow_execution_cancel_requested,
-    EventType.WorkflowExecutionCompleted: noop,
-    EventType.DecisionTaskScheduled: noop,
-    EventType.DecisionTaskStarted: noop,  # Filtered by HistoryHelper
-    EventType.DecisionTaskTimedOut: noop,  # TODO: check
-    EventType.DecisionTaskFailed: ReplayDecider.handle_decision_task_failed,
-    EventType.ActivityTaskScheduled: ReplayDecider.handle_activity_task_scheduled,
-    EventType.ActivityTaskStarted: ReplayDecider.handle_activity_task_started,
-    EventType.ActivityTaskCompleted: ReplayDecider.handle_activity_task_completed,
-    EventType.ActivityTaskFailed: ReplayDecider.handle_activity_task_failed,
-    EventType.ActivityTaskTimedOut: ReplayDecider.handle_activity_task_timed_out,
-    EventType.WorkflowExecutionSignaled: ReplayDecider.handle_workflow_execution_signaled,
-    EventType.TimerFired: ReplayDecider.handle_timer_fired,
-    EventType.TimerStarted: ReplayDecider.handle_timer_started,
-    EventType.TimerCanceled: on_timer_canceled,
-    EventType.CancelTimerFailed: ReplayDecider.handle_cancel_timer_failed,
-    EventType.MarkerRecorded: ReplayDecider.handle_marker_recorded
+    EventType.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED: ReplayDecider.handle_workflow_execution_started,
+    EventType.EVENT_TYPE_WORKFLOW_EXECUTION_CANCEL_REQUESTED: ReplayDecider.handle_workflow_execution_cancel_requested,
+    EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED: noop,
+    EventType.EVENT_TYPE_WORKFLOW_TASK_SCHEDULED: noop,
+    EventType.EVENT_TYPE_WORKFLOW_TASK_STARTED: noop,  # Filtered by HistoryHelper
+    EventType.EVENT_TYPE_WORKFLOW_TASK_TIMED_OUT: noop,  # TODO: check
+    EventType.EVENT_TYPE_WORKFLOW_TASK_FAILED: ReplayDecider.handle_decision_task_failed,
+    EventType.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED: ReplayDecider.handle_activity_task_scheduled,
+    EventType.EVENT_TYPE_ACTIVITY_TASK_STARTED: ReplayDecider.handle_activity_task_started,
+    EventType.EVENT_TYPE_ACTIVITY_TASK_COMPLETED: ReplayDecider.handle_activity_task_completed,
+    EventType.EVENT_TYPE_ACTIVITY_TASK_FAILED: ReplayDecider.handle_activity_task_failed,
+    EventType.EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT: ReplayDecider.handle_activity_task_timed_out,
+    EventType.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED: ReplayDecider.handle_workflow_execution_signaled,
+    EventType.EVENT_TYPE_TIMER_FIRED: ReplayDecider.handle_timer_fired,
+    EventType.EVENT_TYPE_TIMER_STARTED: ReplayDecider.handle_timer_started,
+    EventType.EVENT_TYPE_TIMER_CANCELED: on_timer_canceled,
+    # TODO:
+    # EventType.CancelTimerFailed: ReplayDecider.handle_cancel_timer_failed,
+    EventType.EVENT_TYPE_MARKER_RECORDED: ReplayDecider.handle_marker_recorded
 }
 
 
 @dataclass
 class DecisionTaskLoop:
     worker: Worker
-    service: WorkflowService = None
+    service: WorkflowServiceStub = None
     deciders: Dict[str, ReplayDecider] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -851,22 +864,22 @@ class DecisionTaskLoop:
 
     def run(self):
         try:
-            logger.info(f"Decision task worker started: {WorkflowService.get_identity()}")
+            logger.info(f"Decision task worker started: {get_identity()}")
             event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(event_loop)
-            self.service = WorkflowService.create(self.worker.host, self.worker.port, timeout=self.worker.get_timeout())
+            self.service = create_workflow_service(self.worker.host, self.worker.port, timeout=self.worker.get_timeout())
             self.worker.manage_service(self.service)
             while True:
                 try:
                     if self.worker.is_stop_requested():
                         return
                     self.service.set_next_timeout_cb(self.worker.raise_if_stop_requested)
-                    decision_task: PollForDecisionTaskResponse = self.poll()
+                    decision_task: PollWorkflowTaskQueueResponse = self.poll()
                     if not decision_task:
                         continue
                     if decision_task.query:
                         try:
-                            result = self.process_query(decision_task)
+                            result: Payloads = self.process_query(decision_task)
                             self.respond_query(decision_task.task_token, result, None)
                         except Exception as ex:
                             logger.error("Error")
@@ -884,77 +897,81 @@ class DecisionTaskLoop:
                 logger.warning("service.close() failed", exc_info=1)
             self.worker.notify_thread_stopped()
 
-    def poll(self) -> Optional[PollForDecisionTaskResponse]:
+    async def poll(self) -> Optional[PollWorkflowTaskQueueResponse]:
         try:
             polling_start = datetime.datetime.now()
-            poll_decision_request = PollForDecisionTaskRequest()
-            poll_decision_request.identity = WorkflowService.get_identity()
-            poll_decision_request.task_list = TaskList()
-            poll_decision_request.task_list.name = self.worker.task_list
-            poll_decision_request.domain = self.worker.domain
+            poll_decision_request = PollWorkflowTaskQueueRequest()
+            poll_decision_request.identity = get_identity()
+            poll_decision_request.task_queue = TaskQueue()
+            poll_decision_request.task_queue.name = self.worker.task_queue
+            poll_decision_request.namespace = self.worker.namespace
             # noinspection PyUnusedLocal
-            task: PollForDecisionTaskResponse
-            task, err = self.service.poll_for_decision_task(poll_decision_request)
+            task: PollWorkflowTaskQueueResponse
+            task = await self.service.poll_workflow_task_queue(request=poll_decision_request)
             polling_end = datetime.datetime.now()
-            logger.debug("PollForDecisionTask: %dms", (polling_end - polling_start).total_seconds() * 1000)
-        except TChannelException as ex:
-            logger.error("PollForDecisionTask error: %s", ex)
+            logger.debug("PollWorkflowTaskQueue: %dms", (polling_end - polling_start).total_seconds() * 1000)
+        except Exception as ex:  # TODO: Replace with equivalent of except TChannelException as ex:
+            logger.error("PollWorkflowTaskQueue error: %s", ex)
             return None
-        if err:
-            logger.error("PollForDecisionTask failed: %s", err)
-            return None
+        # TODO: Handle Exception returned by poll_workflow_task_queue
+        #if err:
+        #    logger.error("PollWorkflowTaskQueue failed: %s", err)
+        #    return None
         if not task.task_token:
             logger.debug("PollForActivityTask has no task token (expected): %s", task)
             return None
         return task
 
-    def process_task(self, decision_task: PollForDecisionTaskResponse) -> List[Decision]:
+    def process_task(self, decision_task: PollWorkflowTaskQueueResponse) -> List[Command]:
         execution_id = str(decision_task.workflow_execution)
         decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
-        decisions: List[Decision] = decider.decide(decision_task.history.events)
+        decisions: List[Command] = decider.decide(decision_task.history.events)
         decider.destroy()
         return decisions
 
-    def process_query(self, decision_task: PollForDecisionTaskResponse) -> bytes:
+    def process_query(self, decision_task: PollWorkflowTaskQueueResponse) -> Payloads:
         execution_id = str(decision_task.workflow_execution)
         decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
         decider.decide(decision_task.history.events)
         try:
             result = decider.query(decision_task, decision_task.query)
-            return json.dumps(result)
+            return to_payloads(result)
         finally:
             decider.destroy()
 
-    def respond_query(self, task_token: bytes, result: bytes = None, error_message: str = None):
+    async def respond_query(self, task_token: bytes, result: Payloads = None, error_message: str = None):
         service = self.service
         request = RespondQueryTaskCompletedRequest()
         request.task_token = task_token
         if result:
             request.query_result = result
-            request.completed_type = QueryTaskCompletedType.COMPLETED
+            request.completed_type = QueryResultType.QUERY_RESULT_TYPE_ANSWERED
         else:
             request.error_message = error_message
-            request.completed_type = QueryTaskCompletedType.FAILED
-        _, err = service.respond_query_task_completed(request)
-        if err:
-            logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
-        else:
-            logger.debug("RespondQueryTaskCompleted successful")
+            request.completed_type = QueryResultType.QUERY_RESULT_TYPE_FAILED
+        response: RespondQueryTaskCompletedResponse = await service.respond_query_task_completed(request=request)
+        # TODO: error handling if any
+        # if err:
+        #    logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
+        # else:
+        #    logger.debug("RespondQueryTaskCompleted successful")
 
-    def respond_decisions(self, task_token: bytes, decisions: List[Decision]):
+    async def respond_decisions(self, task_token: bytes, decisions: List[Command]):
         service = self.service
-        request = RespondDecisionTaskCompletedRequest()
+        request = RespondWorkflowTaskCompletedRequest()
         request.task_token = task_token
-        request.decisions.extend(decisions)
-        request.identity = WorkflowService.get_identity()
+        request.commands = []
+        request.commands.extend(decisions)
+        request.identity = get_identity()
         # noinspection PyUnusedLocal
-        response: RespondDecisionTaskCompletedResponse
-        response, err = service.respond_decision_task_completed(request)
-        if err:
-            logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
-        else:
-            logger.debug("RespondDecisionTaskCompleted: %s", response)
+        response: RespondWorkflowTaskCompletedResponse
+        response = await service.respond_workflow_task_completed(request=request)
+        # TODO: error handling
+        # if err:
+        #    logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
+        # else:
+        #    logger.debug("RespondDecisionTaskCompleted: %s", response)
 
 
-from cadence.clock_decision_context import ClockDecisionContext, TimerCancellationHandler, LOCAL_ACTIVITY_MARKER_NAME
-from cadence.replay_interceptor import make_replay_aware
+from .clock_decision_context import ClockDecisionContext, TimerCancellationHandler, LOCAL_ACTIVITY_MARKER_NAME
+from .replay_interceptor import make_replay_aware

@@ -39,7 +39,7 @@ def import_class_from_string(path):
     return klass
 
 
-def serialize_exception(ex: Exception) -> Failure:
+def serialize_exception(ex: BaseException) -> Failure:
     failure = Failure()
     failure.message = str(ex)
     failure.source = THIS_SOURCE
@@ -47,7 +47,7 @@ def serialize_exception(ex: Exception) -> Failure:
     # failure.cause = ???
     exception_cls_name: str = exception_class_fqn(ex)
     failure.application_failure_info = ApplicationFailureInfo()
-    failure.application_failure_info.type_ = exception_class_fqn(ex)
+    failure.application_failure_info.type = exception_class_fqn(ex)
     tb = "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     failure.stack_trace = json.dumps({
         "class": exception_cls_name,
@@ -57,16 +57,19 @@ def serialize_exception(ex: Exception) -> Failure:
     return failure
 
 
-def deserialize_exception(details) -> Exception:
+"""
+TODO: Need unit testing for this
+"""
+def deserialize_exception(details: Failure) -> Exception:
     """
     TODO: Support built-in types like Exception
     """
     exception: Optional[Exception] = None
-    details_dict = json.loads(details)
-    source = details_dict.get("source")
-    exception_cls_name: str = details_dict.get("class")
+    source = details.source
+    exception_cls_name: str = details.application_failure_info.type
 
     if source == THIS_SOURCE and exception_cls_name:
+        details_dict = json.loads(details.stack_trace)
         try:
             klass = import_class_from_string(exception_cls_name)
             exception = klass(*details_dict["args"])
@@ -78,6 +81,7 @@ def deserialize_exception(details) -> Exception:
             logger.error("Failed to deserialize exception (details=%s) cause=%r", details_dict, e)
 
     if not exception:
-        return ExternalException(details_dict)
+        # TODO: Better to deserialize details
+        return ExternalException(details)
     else:
         return exception

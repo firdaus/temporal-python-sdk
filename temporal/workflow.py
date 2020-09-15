@@ -5,87 +5,90 @@ import json
 import random
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, List, Type, Dict, Tuple
+from typing import Callable, List, Type, Dict, Tuple, Any
 from uuid import uuid4
 
+from .activity import ActivityCompletionClient
+from .activity_method import RetryParameters, ActivityOptions
+from .api.common.v1 import WorkflowType, WorkflowExecution
+from .api.enums.v1 import WorkflowIdReusePolicy, HistoryEventFilterType, EventType
+from .api.history.v1 import WorkflowExecutionTerminatedEventAttributes
+from .api.query.v1 import WorkflowQuery
+from .api.taskqueue.v1 import TaskQueue
+from .api.workflowservice.v1 import StartWorkflowExecutionRequest, GetWorkflowExecutionHistoryRequest, \
+    QueryWorkflowRequest, QueryWorkflowResponse, SignalWorkflowExecutionRequest, WorkflowServiceStub
 
-from cadence.activity import ActivityCompletionClient
-from cadence.activity_method import RetryParameters, ActivityOptions
-from cadence.cadence_types import WorkflowIdReusePolicy, StartWorkflowExecutionRequest, TaskList, WorkflowType, \
-    GetWorkflowExecutionHistoryRequest, WorkflowExecution, HistoryEventFilterType, EventType, HistoryEvent, \
-    StartWorkflowExecutionResponse, SignalWorkflowExecutionRequest, QueryWorkflowRequest, WorkflowQuery, \
-    QueryWorkflowResponse
-from cadence.constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
-from cadence.conversions import args_to_json, json_to_args
-from cadence.errors import QueryFailedError
-from cadence.exception_handling import deserialize_exception
-from cadence.exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
+from .constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
+from .conversions import to_payloads, from_payloads
+from .errors import QueryFailedError
+from .exception_handling import deserialize_exception
+from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
     QueryFailureException
-from cadence.workflowservice import WorkflowService
+from .service_helpers import create_workflow_service, get_identity
 
 
 class Workflow:
 
     @staticmethod
     def new_activity_stub(activities_cls, retry_parameters: RetryParameters = None, activity_options: ActivityOptions = None):
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         assert task
         cls = activities_cls()
         cls._decision_context = task.decider.decision_context
-        cls._retry_parameters = retry_parameters
+        cls._retry_parameters = retry_parameters  # type: ignore
         cls._activity_options = activity_options
         return cls
 
     @staticmethod
     async def await_till(c: Callable, timeout_seconds: int = 0) -> bool:
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         assert task
         return await task.await_till(c, timeout_seconds)
 
     @staticmethod
     async def sleep(seconds: int):
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         await task.decider.decision_context.schedule_timer(seconds)
 
     @staticmethod
     def current_time_millis() -> int:
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         return task.decider.decision_context.current_time_millis()
 
     @staticmethod
     def now() -> datetime.datetime:
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         now_in_ms = task.decider.decision_context.current_time_millis()
         return datetime.datetime.fromtimestamp(now_in_ms / 1000)
 
     @staticmethod
     def random_uuid() -> uuid.UUID:
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         return task.decider.decision_context.random_uuid()
 
     @staticmethod
     def new_random() -> random.Random:
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         return task.decider.decision_context.new_random()
 
     @staticmethod
     def get_version(change_id: str, min_supported: int, max_supported: int):
-        from cadence.decision_loop import ITask
-        from cadence.decision_loop import DecisionContext
+        from .decision_loop import ITask
+        from .decision_loop import DecisionContext
         task: ITask = ITask.current()
         decision_context: DecisionContext = task.decider.decision_context
         return decision_context.get_version(change_id, min_supported, max_supported)
 
     @staticmethod
     def get_logger(name):
-        from cadence.decision_loop import ITask
+        from .decision_loop import ITask
         task: ITask = ITask.current()
         return task.decider.decision_context.get_logger(name)
 
@@ -102,26 +105,29 @@ class WorkflowExecutionContext:
 
 @dataclass
 class WorkflowClient:
-    service: WorkflowService
-    domain: domain
+    service: WorkflowServiceStub
+    namespace: str
     options: WorkflowClientOptions
 
     @classmethod
-    def new_client(cls, host: str = "localhost", port: int = 7933, domain: str = "",
+    def new_client(cls, host: str = "localhost", port: int = 7933, namespace: str = "",
                    options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS) -> WorkflowClient:
-        service = WorkflowService.create(host, port, timeout=timeout)
-        return cls(service=service, domain=domain, options=options)
+        service = create_workflow_service(host, port, timeout=timeout)
+        return cls(service=service, namespace=namespace, options=options)
 
     @classmethod
     def start(cls, stub_fn: Callable, *args) -> WorkflowExecutionContext:
-        stub = stub_fn.__self__
-        assert stub._workflow_client is not None
-        assert stub_fn._workflow_method is not None
-        return exec_workflow(stub._workflow_client, stub_fn._workflow_method, args,
-                             workflow_options=stub._workflow_options, stub_instance=stub)
+        stub = stub_fn.__self__  # type: ignore
+        client = stub._workflow_client  # type: ignore
+        assert client is not None
+        method = stub_fn._workflow_method  # type: ignore
+        assert method is not None
+        options = stub._workflow_options  # type: ignore
+        return exec_workflow(client, method, args,
+                             workflow_options=options, stub_instance=stub)
 
     def new_workflow_stub(self, cls: Type, workflow_options: WorkflowOptions = None):
-        attrs = {}
+        attrs: Dict[str, Any] = {}
         attrs["_workflow_client"] = self
         attrs["_workflow_options"] = workflow_options
         for name, fn in inspect.getmembers(cls, inspect.isfunction):
@@ -149,39 +155,43 @@ class WorkflowClient:
                                                     run_id=context.workflow_execution.run_id,
                                                     workflow_type=context.workflow_type)
 
-    def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None, workflow_type: str = None):
+    async def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None, workflow_type: str = None):
         while True:
             history_request = create_close_history_event_request(self, workflow_id, run_id)
-            history_response, err = self.service.get_workflow_execution_history(history_request)
-            if err:
-                raise Exception(err)
+            history_response = await self.service.get_workflow_execution_history(request=history_request)
             if not history_response.history.events:
                 continue
             history_event = history_response.history.events[0]
-            if history_event.event_type == EventType.WorkflowExecutionCompleted:
-                attributes = history_event.workflow_execution_completed_event_attributes
-                return json.loads(attributes.result)
-            elif history_event.event_type == EventType.WorkflowExecutionFailed:
-                attributes = history_event.workflow_execution_failed_event_attributes
-                if attributes.reason == "WorkflowFailureException":
-                    exception = deserialize_exception(attributes.details)
+            if history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
+                completed_attributes = history_event.workflow_execution_completed_event_attributes
+                return from_payloads(completed_attributes.result)
+            elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED:
+                failed_attributes = history_event.workflow_execution_failed_event_attributes
+                exception = deserialize_exception(failed_attributes.failure)
+                raise exception
+                """
+                TODO: Do we need any of the logic here?
+                if failed_attributes.reason == "WorkflowFailureException":
+                    exception = deserialize_exception(failed_attributes.details)
                     if isinstance(exception, ActivityFailureException):
                         exception.set_cause()
                     workflow_execution = WorkflowExecution(workflow_id=workflow_id, run_id=run_id)
                     raise WorkflowFailureException(workflow_type=workflow_type,
                                                    execution=workflow_execution) from exception
                 else:
-                    details: Dict = json.loads(attributes.details)
+                    details: Dict = json.loads(failed_attributes.details)
                     detail_message = details.get("detailMessage", "")
-                    raise WorkflowExecutionFailedException(attributes.reason, details=details,
+                    raise WorkflowExecutionFailedException(failed_attributes.reason, details=details,
                                                            detail_message=detail_message)
-            elif history_event.event_type == EventType.WorkflowExecutionTimedOut:
+                """
+            elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_TIMED_OUT:
                 raise WorkflowExecutionTimedOutException()
-            elif history_event.event_type == EventType.WorkflowExecutionTerminated:
-                attributes = history_event.workflow_execution_terminated_event_attributes
-                raise WorkflowExecutionTerminatedException(reason=attributes.reason, details=attributes.details,
-                                                           identity=attributes.identity)
-            elif history_event.event_type == EventType.WorkflowExecutionCanceled:
+            elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_TERMINATED:
+                terminated_attributes  = history_event.workflow_execution_terminated_event_attributes
+                raise WorkflowExecutionTerminatedException(reason=terminated_attributes.reason,
+                                                           details=terminated_attributes.details,
+                                                           identity=terminated_attributes.identity)
+            elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_CANCELED:
                 raise WorkflowExecutionCanceledException()
             else:
                 raise Exception("Unexpected history close event: " + str(history_event))
@@ -197,7 +207,7 @@ def exec_workflow(workflow_client, wm: WorkflowMethod, args, workflow_options: W
     if err:
         raise Exception(err)
     execution = WorkflowExecution(workflow_id=start_request.workflow_id, run_id=start_response.run_id)
-    stub_instance._execution = execution
+    stub_instance._execution = execution  # type: ignore
     return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution)
 
 
@@ -209,28 +219,27 @@ def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod, args
     return workflow_client.wait_for_close(execution_context)
 
 
-def exec_signal(workflow_client: WorkflowClient, sm: SignalMethod, args, stub_instance: object = None):
-    assert stub_instance._execution
+async def exec_signal(workflow_client: WorkflowClient, sm: SignalMethod, args, stub_instance: object = None):
+    assert stub_instance._execution  # type: ignore
     request = SignalWorkflowExecutionRequest()
-    request.workflow_execution = stub_instance._execution
+    request.workflow_execution = stub_instance._execution  # type: ignore
     request.signal_name = sm.name
-    request.input = args_to_json(args)
-    request.domain = workflow_client.domain
-    response, err = workflow_client.service.signal_workflow_execution(request)
-    if err:
-        raise Exception(err)
+    request.input = to_payloads(args)
+    request.namespace = workflow_client.namespace
+    response = await workflow_client.service.signal_workflow_execution(request=request)
 
 
-def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stub_instance: object = None):
-    assert stub_instance._execution
+async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stub_instance: object = None):
+    assert stub_instance._execution  # type: ignore
     request = QueryWorkflowRequest()
-    request.execution = stub_instance._execution
+    request.execution = stub_instance._execution  # type: ignore
     request.query = WorkflowQuery()
     request.query.query_type = qm.name
-    request.query.query_args = args_to_json(args)
-    request.domain = workflow_client.domain
-    response: QueryWorkflowResponse
-    response, err = workflow_client.service.query_workflow(request)
+    request.query.query_args = to_payloads(args)
+    request.namespace = workflow_client.namespace
+    response: QueryWorkflowResponse = await workflow_client.service.query_workflow(request=request)
+    """
+    TODO: Do we need to bring back any of this error handling
     if err:
         if isinstance(err, QueryFailedError):
             cause = deserialize_exception(err.message)
@@ -239,24 +248,25 @@ def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stub_inst
             raise err
         else:
             raise Exception(err)
+    """
     if response.query_rejected:
-        raise QueryRejectedException(response.query_rejected.close_status)
-    return json.loads(response.query_result)
+        raise QueryRejectedException(response.query_rejected.status)
+    return from_payloads(response.query_result)
 
 
 def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowMethod,
                                   args: List) -> StartWorkflowExecutionRequest:
     start_request = StartWorkflowExecutionRequest()
-    start_request.domain = workflow_client.domain
+    start_request.namespace = workflow_client.namespace
     start_request.workflow_id = wm._workflow_id if wm._workflow_id else str(uuid4())
     start_request.workflow_type = WorkflowType()
     start_request.workflow_type.name = wm._name
-    start_request.task_list = TaskList()
-    start_request.task_list.name = wm._task_list
-    start_request.input = args_to_json(args)
+    start_request.task_queue = TaskQueue()
+    start_request.task_queue.name = wm._task_list
+    start_request.input = to_payloads(args)
     start_request.execution_start_to_close_timeout_seconds = wm._execution_start_to_close_timeout_seconds
     start_request.task_start_to_close_timeout_seconds = wm._task_start_to_close_timeout_seconds
-    start_request.identity = workflow_client.service.get_identity()
+    start_request.identity = get_identity()
     start_request.workflow_id_reuse_policy = wm._workflow_id_reuse_policy
     start_request.request_id = str(uuid4())
     start_request.cron_schedule = wm._cron_schedule if wm._cron_schedule else None
@@ -266,12 +276,12 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
 def create_close_history_event_request(workflow_client: WorkflowClient, workflow_id: str,
                                        run_id: str) -> GetWorkflowExecutionHistoryRequest:
     history_request = GetWorkflowExecutionHistoryRequest()
-    history_request.domain = workflow_client.domain
+    history_request.namespace = workflow_client.namespace
     history_request.execution = WorkflowExecution()
     history_request.execution.workflow_id = workflow_id
     history_request.execution.run_id = run_id
     history_request.wait_for_new_event = True
-    history_request.history_event_filter_type = HistoryEventFilterType.CLOSE_EVENT
+    history_request.history_event_filter_type = HistoryEventFilterType.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT
     return history_request
 
 
@@ -285,7 +295,7 @@ def get_workflow_stub_fn(wm: WorkflowMethod):
         return exec_workflow_sync(self._workflow_client, wm, args,
                                   workflow_options=self._workflow_options, stub_instance=self)
 
-    workflow_stub_fn._workflow_method = wm
+    workflow_stub_fn._workflow_method = wm  # type: ignore
     return workflow_stub_fn
 
 
@@ -294,7 +304,7 @@ def get_signal_stub_fn(sm: SignalMethod):
         assert self._workflow_client is not None
         return exec_signal(self._workflow_client, sm, args, stub_instance=self)
 
-    signal_stub_fn._signal_method = sm
+    signal_stub_fn._signal_method = sm  # type: ignore
     return signal_stub_fn
 
 
@@ -303,7 +313,7 @@ def get_query_stub_fn(qm: QueryMethod):
         assert self._workflow_client is not None
         return exec_query(self._workflow_client, qm, args, stub_instance=self)
 
-    query_stub_fn._query_method = qm
+    query_stub_fn._query_method = qm  # type: ignore
     return query_stub_fn
 
 
@@ -399,12 +409,12 @@ class WorkflowOptions:
 @dataclass
 class WorkflowExecutionFailedException(Exception):
     reason: str
-    details: Dict[str, str]
+    details: Dict[str, Any]
     detail_message: str
 
     def __str__(self) -> str:
         cause = self.details.get("cause")
-        if cause:
+        if isinstance(cause, dict):
             return f"{cause['class']}: {cause['detailMessage']}"
         else:
             return f"{self.reason}: {self.detail_message}"

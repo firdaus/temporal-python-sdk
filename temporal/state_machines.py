@@ -1,15 +1,17 @@
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from cadence.cadence_types import Decision, HistoryEvent, ScheduleActivityTaskDecisionAttributes, \
-    RequestCancelActivityTaskDecisionAttributes, DecisionType, StartTimerDecisionAttributes, \
-    CancelTimerDecisionAttributes
-from cadence.decisions import DecisionState, DecisionId
-from cadence.exceptions import IllegalStateException, IllegalArgumentException
+from .api.command.v1 import Command, ScheduleActivityTaskCommandAttributes, StartTimerCommandAttributes, \
+    CancelTimerCommandAttributes, RequestCancelActivityTaskCommandAttributes
+from .api.enums.v1 import CommandType
+from .api.history.v1 import HistoryEvent
+
+from .decisions import DecisionState, DecisionId
+from .exceptions import IllegalStateException, IllegalArgumentException
 
 
 class DecisionStateMachine:
-    def get_decision(self) -> Optional[Decision]:
+    def get_decision(self) -> Optional[Command]:
         raise NotImplementedError
 
     def cancel(self, immediate_cancellation_callback: Callable) -> bool:
@@ -145,7 +147,7 @@ class DecisionStateMachineBase(DecisionStateMachine):
         if self.state == DecisionState.COMPLETED_AFTER_CANCELLATION_DECISION_SENT:
             self.state = DecisionState.COMPLETED
         else:
-            self.state.fail_state_transition()
+            self.fail_state_transition()
         self.state_history.append(str(self.state))
 
     def handle_cancellation_event(self):
@@ -166,13 +168,13 @@ class ActivityDecisionStateMachine(DecisionStateMachineBase):
     This class has feature parity with the Java version even though it implements parts of features
     not yet implemented in the Python version.
     """
-    schedule_attributes: ScheduleActivityTaskDecisionAttributes = None
+    schedule_attributes: ScheduleActivityTaskCommandAttributes = None
 
     def __post_init__(self):
         if not self.schedule_attributes:
             raise IllegalArgumentException("schedule_attributes is mandatory")
 
-    def get_decision(self) -> Optional[Decision]:
+    def get_decision(self) -> Optional[Command]:
         if self.state == DecisionState.CREATED:
             return self.create_schedule_activity_task_decision()
         elif self.state == DecisionState.CANCELED_AFTER_INITIATED:
@@ -197,17 +199,17 @@ class ActivityDecisionStateMachine(DecisionStateMachineBase):
             super().handle_cancellation_failure_event(event)
 
     def create_schedule_activity_task_decision(self):
-        decision = Decision()
-        decision.schedule_activity_task_decision_attributes = self.schedule_attributes
-        decision.decision_type = DecisionType.ScheduleActivityTask
+        decision = Command()
+        decision.schedule_activity_task_command_attributes = self.schedule_attributes
+        decision.decision_type = CommandType.ScheduleActivityTask
         return decision
 
     def create_request_cancel_activity_task_decision(self):
-        try_cancel = RequestCancelActivityTaskDecisionAttributes()
+        try_cancel = RequestCancelActivityTaskCommandAttributes()
         try_cancel.activity_id = self.schedule_attributes.activity_id
-        decision = Decision()
+        decision = Command()
         decision.request_cancel_activity_task_decision_attributes = try_cancel
-        decision.decision_type = DecisionType.RequestCancelActivityTask
+        decision.decision_type = CommandType.RequestCancelActivityTask
         return decision
 
 
@@ -215,12 +217,12 @@ class ActivityDecisionStateMachine(DecisionStateMachineBase):
 @dataclass
 class CompleteWorkflowStateMachine(DecisionStateMachine):
     id: DecisionId
-    decision: Optional[Decision]
+    decision: Optional[Command]
 
     def get_id(self) -> DecisionId:
         return self.id
 
-    def get_decision(self) -> Optional[Decision]:
+    def get_decision(self) -> Optional[Command]:
         return self.decision
 
     def handle_initiation_failed_event(self, event: HistoryEvent):
@@ -239,14 +241,14 @@ class CompleteWorkflowStateMachine(DecisionStateMachine):
 # noinspection PyAbstractClass
 @dataclass
 class TimerDecisionStateMachine(DecisionStateMachineBase):
-    start_timer_attributes: StartTimerDecisionAttributes = None
+    start_timer_attributes: StartTimerCommandAttributes = None
     canceled: bool = False
 
     def __post_init__(self):
         if not self.start_timer_attributes:
             raise IllegalArgumentException("start_timer_decision_attributes is mandatory")
 
-    def get_decision(self) -> Optional[Decision]:
+    def get_decision(self) -> Optional[Command]:
         if self.state == DecisionState.CREATED:
             return self.create_start_timer_decision()
         elif self.state == DecisionState.CANCELED_AFTER_INITIATED:
@@ -279,25 +281,25 @@ class TimerDecisionStateMachine(DecisionStateMachineBase):
         return self.state == DecisionState.COMPLETED or self.canceled
 
     def create_cancel_timer_decision(self):
-        try_cancel = CancelTimerDecisionAttributes()
+        try_cancel = CancelTimerCommandAttributes()
         try_cancel.timer_id = self.start_timer_attributes.timer_id
-        decision: Decision = Decision()
+        decision: Command = Command()
         decision.cancel_timer_decision_attributes = try_cancel
-        decision.decision_type = DecisionType.CancelTimer
+        decision.decision_type = CommandType.CancelTimer
         return decision
 
     def create_start_timer_decision(self):
-        decision: Decision = Decision()
+        decision: Command = Command()
         decision.start_timer_decision_attributes = self.start_timer_attributes
-        decision.decision_type = DecisionType.StartTimer
+        decision.decision_type = CommandType.StartTimer
         return decision
 
 
 @dataclass
 class MarkerDecisionStateMachine(DecisionStateMachineBase):
-    decision: Decision = None
+    decision: Command = None
 
-    def get_decision(self) -> Optional[Decision]:
+    def get_decision(self) -> Optional[Command]:
         if self.state == DecisionState.CREATED:
             return self.decision
         else:

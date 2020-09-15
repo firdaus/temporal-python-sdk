@@ -1,16 +1,16 @@
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, Union
+from datetime import datetime
 
 import json
 
-from cadence.cadence_types import StartTimerDecisionAttributes, TimerFiredEventAttributes, HistoryEvent, \
-    TimerCanceledEventAttributes
-from cadence.conversions import args_to_json
-from cadence.decision_loop import ReplayDecider, DecisionContext
-from cadence.exceptions import CancellationException
-from cadence.marker import MarkerHandler, MarkerInterface, MarkerResult
-from cadence.util import OpenRequestInfo
+from .api.command.v1 import StartTimerCommandAttributes
+from .api.history.v1 import TimerFiredEventAttributes, HistoryEvent, TimerCanceledEventAttributes
+from .decision_loop import ReplayDecider, DecisionContext
+from .exceptions import CancellationException
+from .marker import MarkerHandler, MarkerInterface, MarkerResult
+from .util import OpenRequestInfo
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +27,17 @@ class ClockDecisionContext:
     decider: ReplayDecider
     decision_context: DecisionContext
     scheduled_timers: Dict[int, OpenRequestInfo] = field(default_factory=dict)
-    replay_current_time_milliseconds: int = -1
+    replay_current_time_milliseconds: datetime = None
     replaying: bool = True
     version_handler: MarkerHandler = None
 
     def __post_init__(self):
         self.version_handler = MarkerHandler(self.decision_context, VERSION_MARKER_NAME)
 
-    def set_replay_current_time_milliseconds(self, s):
+    def set_replay_current_time_milliseconds(self, s: datetime):
         self.replay_current_time_milliseconds = s
 
-    def current_time_millis(self):
+    def current_time_millis(self) -> datetime:
         return self.replay_current_time_milliseconds
 
     def create_timer(self, delay_seconds: int, callback: Callable):
@@ -46,13 +46,13 @@ class ClockDecisionContext:
         if delay_seconds == 0:
             callback(None)
             return None
-        firing_time = self.current_time_millis() + delay_seconds * 1000
+        firing_time = (self.current_time_millis().timestamp() * 1000) + delay_seconds * 1000
         context = OpenRequestInfo(user_context=firing_time)
-        timer = StartTimerDecisionAttributes()
+        timer = StartTimerCommandAttributes()
         timer.start_to_fire_timeout_seconds = delay_seconds
         timer.timer_id = str(self.decider.get_and_increment_next_id())
         start_event_id: int = self.decider.start_timer(timer)
-        context.completion_handle = lambda ctx, e: callback(e)
+        context.completion_handle = lambda ctx, e: callback(e)  # type: ignore
         self.scheduled_timers[start_event_id] = context
         return TimerCancellationHandler(start_event_id=start_event_id, clock_decision_context=self)
 
@@ -91,7 +91,7 @@ class ClockDecisionContext:
 
         result: bytes = self.version_handler.handle(change_id, func)
         if result is None:
-            result = json.dumps(DEFAULT_VERSION)
+            result = json.dumps(DEFAULT_VERSION).encode("utf-8")
             self.version_handler.set_data(change_id, result)
             self.version_handler.mark_replayed(change_id)  # so that we don't ever emit a MarkerRecorded for this
 
@@ -129,7 +129,6 @@ class ClockDecisionContext:
             #       log.warn("Unexpected marker: " + event);
             # }
             pass
-
 
 
 @dataclass

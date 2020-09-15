@@ -40,5 +40,9 @@ class DecisionId:
     def __hash__(self):
         return hash(self.__str__())
 
-    def __eq__(self, other: DecisionId):
-        return (self.decision_target == other.decision_target) and (self.decision_event_id == other.decision_event_id)
+    def __eq__(self, other: object):
+        # TODO: unit test
+        if not isinstance(object, DecisionId):
+            return False
+        else:
+            return (self.decision_target == other.decision_target) and (self.decision_event_id == other.decision_event_id)

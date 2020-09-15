@@ -5,8 +5,11 @@ from dataclasses_json import dataclass_json, LetterCase
 
 from typing import Dict, Optional
 
-from cadence.cadence_types import Header, EventType, MarkerRecordedEventAttributes, HistoryEvent
-from cadence.decision_loop import DecisionContext
+from temporal.api.common.v1 import Header
+from temporal.api.enums.v1 import EventType
+from temporal.api.history.v1 import MarkerRecordedEventAttributes, HistoryEvent
+
+from .decision_loop import DecisionContext
 
 MUTABLE_MARKER_HEADER_KEY = "MutableMarkerHeader"
 
@@ -16,7 +19,7 @@ class MarkerInterface:
     def from_event_attributes(attributes: MarkerRecordedEventAttributes) -> MarkerInterface:
         if attributes.header and attributes.header.fields and MUTABLE_MARKER_HEADER_KEY in attributes.header.fields:
             buffer = attributes.header.fields.get(MUTABLE_MARKER_HEADER_KEY)
-            header = MarkerHeader.from_json(str(buffer, "utf-8"))
+            header = MarkerHeader.from_json(str(buffer, "utf-8"))  # type: ignore
             return MarkerData(header=header, data=attributes.details)
         return PlainMarkerData.from_json(str(attributes.details, "utf-8"))
 
@@ -50,7 +53,7 @@ class MarkerData(MarkerInterface):
         return MarkerData(header=header, data=data)
 
     def get_header(self) -> Header:
-        header_bytes = self.header.to_json().encode("utf-8")
+        header_bytes = self.header.to_json().encode("utf-8")  # type: ignore
         header = Header()
         header.fields[MUTABLE_MARKER_HEADER_KEY] = header_bytes
         return header
@@ -113,14 +116,14 @@ class MarkerHandler:
                 return to_store
             else:
                 # TODO: Should this ever happen? - at least for version it will never happen
-                pass
+                return None
 
     # This method is currently not being used - after adopting the version logic from the
     # Golang client
     def get_marker_data_from_history(self, event_id: int, marker_id: str, expected_access_count: int) -> \
             Optional[bytes]:
         event: HistoryEvent = self.decision_context.decider.get_optional_decision_event(event_id)
-        if not event or event.event_type != EventType.MarkerRecorded:
+        if not event or event.event_type != EventType.EVENT_TYPE_MARKER_RECORDED:
             return None
 
         attributes: MarkerRecordedEventAttributes = event.marker_recorded_event_attributes
