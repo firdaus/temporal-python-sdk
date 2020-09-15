@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from cadence.cadence_types import TimeoutType, ActivityType, WorkflowExecution, WorkflowExecutionCloseStatus
-from cadence.exception_handling import deserialize_exception
+from temporal.api.common.v1 import WorkflowExecution
+from temporal.api.enums.v1 import TimeoutType, WorkflowExecutionStatus
+from temporal.exception_handling import deserialize_exception
 
 
 class IllegalStateException(BaseException):
@@ -120,7 +121,7 @@ class QueryFailureException(Exception):
 
 
 class QueryRejectedException(Exception):
-    close_status: WorkflowExecutionCloseStatus
+    close_status: WorkflowExecutionStatus
 
-    def __init__(self, close_status: WorkflowExecutionCloseStatus):
+    def __init__(self, close_status: WorkflowExecutionStatus):
         self.close_status = close_status

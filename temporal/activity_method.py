@@ -1,11 +1,10 @@
 import copy
 import inspect
-import json
 from dataclasses import dataclass, field
 from typing import Callable, List
 
-from cadence.cadence_types import ActivityType, RetryPolicy
-from cadence.conversions import args_to_json
+from temporal.api.common.v1 import RetryPolicy, ActivityType, Payloads
+from temporal.conversions import to_payloads
 
 
 def get_activity_method_name(method: Callable):
@@ -37,34 +36,35 @@ class ExecuteActivityParameters:
     activity_id: str = ""
     activity_type: ActivityType = None
     heartbeat_timeout_seconds: int = 0
-    input: bytes = None
+    input: Payloads = None
     schedule_to_close_timeout_seconds: int = 0
     schedule_to_start_timeout_seconds: int = 0
     start_to_close_timeout_seconds: int = 0
-    task_list: str = ""
+    task_queue: str = ""
     retry_parameters: RetryParameters = None
 
 
 def activity_method(func: Callable = None, name: str = "", schedule_to_close_timeout_seconds: int = 0,
                     schedule_to_start_timeout_seconds: int = 0, start_to_close_timeout_seconds: int = 0,
-                    heartbeat_timeout_seconds: int = 0, task_list: str = "", retry_parameters: RetryParameters = None):
+                    heartbeat_timeout_seconds: int = 0, task_queue: str = "", retry_parameters: RetryParameters = None):
     def wrapper(fn: Callable):
         # noinspection PyProtectedMember
         async def stub_activity_fn(self, *args):
             assert self._decision_context
             assert stub_activity_fn._execute_parameters
-            parameters = copy.deepcopy(stub_activity_fn._execute_parameters)
+            parameters: ExecuteActivityParameters = copy.deepcopy(stub_activity_fn._execute_parameters)
             if hasattr(self, "_activity_options") and self._activity_options:
                 self._activity_options.fill_execute_activity_parameters(parameters)
             if self._retry_parameters:
                 parameters.retry_parameters = self._retry_parameters
-            parameters.input = args_to_json(args).encode("utf-8")
-            from cadence.decision_loop import DecisionContext
-            decision_context: DecisionContext = self._decision_context
-            return await decision_context.schedule_activity_task(parameters=parameters)
+            parameters.input = to_payloads(args)
+            # TODO PORT:
+            # from cadence.decision_loop import DecisionContext
+            # decision_context: DecisionContext = self._decision_context
+            # return await decision_context.schedule_activity_task(parameters=parameters)
 
-        if not task_list:
-            raise Exception("task_list parameter is mandatory")
+        if not task_queue:
+            raise Exception("task_queue parameter is mandatory")
 
         execute_parameters = ExecuteActivityParameters()
         execute_parameters.activity_type = ActivityType()
@@ -73,9 +73,10 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
         execute_parameters.schedule_to_start_timeout_seconds = schedule_to_start_timeout_seconds
         execute_parameters.start_to_close_timeout_seconds = start_to_close_timeout_seconds
         execute_parameters.heartbeat_timeout_seconds = heartbeat_timeout_seconds
-        execute_parameters.task_list = task_list
+        execute_parameters.task_queue = task_queue
         execute_parameters.retry_parameters = retry_parameters
-        stub_activity_fn._execute_parameters = execute_parameters
+        # noinspection PyTypeHints
+        stub_activity_fn._execute_parameters = execute_parameters  # type: ignore
         return stub_activity_fn
 
     if func and inspect.isfunction(func):
@@ -90,7 +91,7 @@ class ActivityOptions:
     schedule_to_start_timeout_seconds: int = None
     start_to_close_timeout_seconds: int = None
     heartbeat_timeout_seconds: int = None
-    task_list: str = None
+    task_queue: str = None
 
     def fill_execute_activity_parameters(self, execute_parameters: ExecuteActivityParameters):
         if self.schedule_to_close_timeout_seconds is not None:
@@ -101,5 +102,5 @@ class ActivityOptions:
             execute_parameters.start_to_close_timeout_seconds = self.start_to_close_timeout_seconds
         if self.heartbeat_timeout_seconds is not None:
             execute_parameters.heartbeat_timeout_seconds = self.heartbeat_timeout_seconds
-        if self.task_list is not None:
-            execute_parameters.task_list = self.task_list
+        if self.task_queue is not None:
+            execute_parameters.task_queue = self.task_queue

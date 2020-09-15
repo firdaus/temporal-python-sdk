@@ -1,65 +1,65 @@
 import contextvars
-import json
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Optional
+from datetime import datetime, timedelta
 
-from cadence.cadence_types import WorkflowExecution, RecordActivityTaskHeartbeatRequest, ActivityType, \
-    PollForActivityTaskResponse, RespondActivityTaskFailedRequest, RespondActivityTaskCompletedRequest
-from cadence.exception_handling import serialize_exception
-from cadence.exceptions import ActivityCancelledException
-from cadence.workflowservice import WorkflowService
+from typing import List, Optional
 
-current_activity_context = contextvars.ContextVar("current_activity_context")
+from temporal.api.common.v1 import WorkflowExecution, ActivityType, Payloads
+from temporal.api.workflowservice.v1 import PollActivityTaskQueueResponse, RecordActivityTaskHeartbeatRequest, \
+    RespondActivityTaskFailedRequest, RespondActivityTaskCompletedRequest
+from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService
+from temporal.conversions import to_payloads, from_payloads
+from temporal.exception_handling import serialize_exception
+from temporal.exceptions import ActivityCancelledException
+from temporal.service_helpers import get_identity
+
+current_activity_context: ContextVar['ActivityContext'] = contextvars.ContextVar("current_activity_context")
 
 
 @dataclass
 class ActivityTask:
     @classmethod
-    def from_poll_for_activity_task_response(cls, task: PollForActivityTaskResponse) -> 'ActivityTask':
+    def from_poll_for_activity_task_response(cls, task: PollActivityTaskQueueResponse) -> 'ActivityTask':
         activity_task: 'ActivityTask' = cls()
         activity_task.task_token = task.task_token
         activity_task.workflow_execution = task.workflow_execution
         activity_task.activity_id = task.activity_id
         activity_task.activity_type = task.activity_type
-        activity_task.scheduled_timestamp = task.scheduled_timestamp
-        activity_task.schedule_to_close_timeout_seconds = task.schedule_to_close_timeout_seconds
-        activity_task.start_to_close_timeout_seconds = task.start_to_close_timeout_seconds
-        activity_task.heartbeat_timeout_seconds = task.heartbeat_timeout_seconds
+        activity_task.scheduled_time = task.scheduled_time
+        activity_task.schedule_to_close_timeout = task.schedule_to_close_timeout
+        activity_task.start_to_close_timeout = task.start_to_close_timeout
+        activity_task.heartbeat_timeout = task.heartbeat_timeout
         activity_task.attempt = task.attempt
         activity_task.heartbeat_details = task.heartbeat_details
-        activity_task.workflow_domain = task.workflow_domain
+        activity_task.workflow_namespace = task.workflow_namespace
         return activity_task
 
     task_token: bytes = None
     workflow_execution: WorkflowExecution = None
     activity_id: str = None
     activity_type: ActivityType = None
-    scheduled_timestamp: int = None
-    schedule_to_close_timeout_seconds: int = None
-    start_to_close_timeout_seconds: int = None
-    heartbeat_timeout_seconds: int = None
+    scheduled_time: datetime = None
+    schedule_to_close_timeout: timedelta = None
+    start_to_close_timeout: timedelta = None
+    heartbeat_timeout: timedelta = None
     attempt: int = None
-    heartbeat_details: bytes = None
-    workflow_domain: str = None
+    heartbeat_details: Payloads = None
+    workflow_namespace: str = None
 
 
-def heartbeat(service: WorkflowService, task_token: bytes, details: object):
-    request = RecordActivityTaskHeartbeatRequest()
-    request.details = json.dumps(details).encode("utf-8")
-    request.identity = WorkflowService.get_identity()
+async def heartbeat(service: WorkflowService, task_token: bytes, details: object):
+    request: RecordActivityTaskHeartbeatRequest = RecordActivityTaskHeartbeatRequest()
+    request.details = to_payloads([details])
+    request.identity = get_identity()
     request.task_token = task_token
-    response, error = service.record_activity_task_heartbeat(request)
-    if error:
-        raise error
+    response = await service.record_activity_task_heartbeat(request=request)
+    # -----
+    # if error:
+    #     raise error
+    # -----
     if response.cancel_requested:
         raise ActivityCancelledException()
-
-
-def get_heartbeat_details(heartbeat_details) -> object:
-    if not heartbeat_details:
-        return None
-    json_text = heartbeat_details.decode("utf-8")
-    return json.loads(json_text)
 
 
 class ActivityContext:
@@ -73,14 +73,20 @@ class ActivityContext:
         return current_activity_context.get()
 
     @staticmethod
-    def set(context: 'ActivityContext'):
+    def set(context: Optional['ActivityContext']):
         current_activity_context.set(context)
 
-    def heartbeat(self, details: object):
-        heartbeat(self.service, self.activity_task.task_token, details)
+    # Plan for heartbeat:
+    # - We will possibly implement a non-async version of this
+    # - We might standardize on a background thread (using an in-memory queue) for heartbeats
+    #   in which case it doesn't matter whether it's an async method or not.
+    async def heartbeat(self, details: object):
+        await heartbeat(self.service, self.activity_task.task_token, details)
 
-    def get_heartbeat_details(self) -> object:
-        return get_heartbeat_details(self.activity_task.heartbeat_details)
+    def get_heartbeat_details(self) -> List[object]:
+        details: Payloads = self.activity_task.heartbeat_details
+        payloads: List[object] = from_payloads(details)
+        return payloads
 
     def do_not_complete_on_return(self):
         self.do_not_complete = True
@@ -125,30 +131,25 @@ class ActivityCompletionClient:
         heartbeat(self.service, task_token, details)
 
     def complete(self, task_token: bytes, return_value: object):
-        error = complete(self.service, task_token, return_value)
-        if error:
-            raise error
+        complete(self.service, task_token, return_value)
 
     def complete_exceptionally(self, task_token: bytes, ex: Exception):
-        error = complete_exceptionally(self.service, task_token, ex)
-        if error:
-            raise error
+        complete_exceptionally(self.service, task_token, ex)
 
 
-def complete_exceptionally(service, task_token, ex: Exception) -> Optional[Exception]:
+async def complete_exceptionally(service, task_token, ex: Exception):
     respond: RespondActivityTaskFailedRequest = RespondActivityTaskFailedRequest()
     respond.task_token = task_token
-    respond.identity = WorkflowService.get_identity()
-    respond.reason = "ActivityFailureException"
-    respond.details = serialize_exception(ex)
-    _, error = service.respond_activity_task_failed(respond)
-    return error
+    respond.identity = get_identity()
+    respond.failure = serialize_exception(ex)
+    # TODO: error handling
+    await service.respond_activity_task_failed(request=respond)
 
 
-def complete(service, task_token, return_value: object) -> Optional[Exception]:
+async def complete(service, task_token, return_value: object):
     respond = RespondActivityTaskCompletedRequest()
     respond.task_token = task_token
-    respond.result = json.dumps(return_value)
-    respond.identity = WorkflowService.get_identity()
-    _, error = service.respond_activity_task_completed(respond)
-    return error
+    respond.result = to_payloads(return_value)
+    respond.identity = get_identity()
+    # TODO: error handling
+    await service.respond_activity_task_completed(request=respond)

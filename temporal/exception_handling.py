@@ -1,10 +1,13 @@
 import json
 import logging
 import traceback
+from typing import Optional
 
-import tblib
+import tblib # type: ignore
 
-THIS_SOURCE = "cadence-python"
+from temporal.api.failure.v1 import Failure, ApplicationFailureInfo
+
+THIS_SOURCE = "PythonSDK"
 
 logger = logging.getLogger(__name__)
 
@@ -36,23 +39,29 @@ def import_class_from_string(path):
     return klass
 
 
-def serialize_exception(ex: Exception):
+def serialize_exception(ex: Exception) -> Failure:
+    failure = Failure()
+    failure.message = str(ex)
+    failure.source = THIS_SOURCE
+    # TODO: support chaining?
+    # failure.cause = ???
     exception_cls_name: str = exception_class_fqn(ex)
+    failure.application_failure_info = ApplicationFailureInfo()
+    failure.application_failure_info.type_ = exception_class_fqn(ex)
     tb = "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-    details = json.dumps({
+    failure.stack_trace = json.dumps({
         "class": exception_cls_name,
         "args": ex.args,
         "traceback": tb,
-        "source": THIS_SOURCE
     })
-    return details
+    return failure
 
 
 def deserialize_exception(details) -> Exception:
     """
     TODO: Support built-in types like Exception
     """
-    exception: Exception = None
+    exception: Optional[Exception] = None
     details_dict = json.loads(details)
     source = details_dict.get("source")
     exception_cls_name: str = details_dict.get("class")
@@ -62,6 +71,7 @@ def deserialize_exception(details) -> Exception:
             klass = import_class_from_string(exception_cls_name)
             exception = klass(*details_dict["args"])
             t = tblib.Traceback.from_string(details_dict["traceback"])
+            assert exception is not None
             exception.with_traceback(t.as_traceback())
         except Exception as e:
             exception = None
