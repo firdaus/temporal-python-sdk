@@ -120,7 +120,7 @@ class Worker:
 
     def start(self):
         from temporal.activity_loop import activity_task_loop
-        from .decision_loop import DecisionTaskLoop
+        from .decision_loop import decision_task_loop_func
         self.threads_stopped = 0
         self.threads_started = 0
         self.stop_requested = False
@@ -129,8 +129,8 @@ class Worker:
             thread.start()
             self.threads_started += 1
         if self.workflow_methods:
-            decision_task_loop = DecisionTaskLoop(worker=self)
-            decision_task_loop.start()
+            thread = threading.Thread(target=decision_task_loop_func, args=(self,))
+            thread.start()
             self.threads_started += 1
 
     def stop(self, background=False):

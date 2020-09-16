@@ -849,6 +849,11 @@ event_handlers = {
 }
 
 
+def decision_task_loop_func(worker: Worker):
+    decision_task_loop = DecisionTaskLoop(worker=worker)
+    decision_task_loop.start()
+
+
 @dataclass
 class DecisionTaskLoop:
     worker: Worker
@@ -859,14 +864,13 @@ class DecisionTaskLoop:
         pass
 
     def start(self):
-        thread = threading.Thread(target=self.run)
-        thread.start()
+        asyncio.run(self.run())
 
-    def run(self):
+    async def run(self):
         try:
             logger.info(f"Decision task worker started: {get_identity()}")
-            event_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(event_loop)
+            # event_loop = asyncio.new_event_loop()
+            # asyncio.set_event_loop(event_loop)
             self.service = create_workflow_service(self.worker.host, self.worker.port, timeout=self.worker.get_timeout())
             self.worker.manage_service(self.service)
             while True:
