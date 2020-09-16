@@ -896,7 +896,7 @@ class DecisionTaskLoop:
         finally:
         # noinspection PyPep8,PyBroadException
             try:
-                self.service.close()
+                self.service.channel.close()
             except:
                 logger.warning("service.close() failed", exc_info=1)
             self.worker.notify_thread_stopped()
