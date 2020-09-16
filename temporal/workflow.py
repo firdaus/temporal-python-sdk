@@ -115,14 +115,14 @@ class WorkflowClient:
         return cls(service=service, namespace=namespace, options=options)
 
     @classmethod
-    def start(cls, stub_fn: Callable, *args) -> WorkflowExecutionContext:
+    async def start(cls, stub_fn: Callable, *args) -> WorkflowExecutionContext:
         stub = stub_fn.__self__  # type: ignore
         client = stub._workflow_client  # type: ignore
         assert client is not None
         method = stub_fn._workflow_method  # type: ignore
         assert method is not None
         options = stub._workflow_options  # type: ignore
-        return exec_workflow(client, method, args,
+        return await exec_workflow(client, method, args,
                              workflow_options=options, stub_instance=stub)
 
     def new_workflow_stub(self, cls: Type, workflow_options: WorkflowOptions = None):
@@ -199,20 +199,18 @@ class WorkflowClient:
         return ActivityCompletionClient(self.service)
 
 
-def exec_workflow(workflow_client, wm: WorkflowMethod, args, workflow_options: WorkflowOptions = None,
+async def exec_workflow(workflow_client: WorkflowClient, wm: WorkflowMethod, args, workflow_options: WorkflowOptions = None,
                   stub_instance: object = None) -> WorkflowExecutionContext:
     start_request = create_start_workflow_request(workflow_client, wm, args)
-    start_response, err = workflow_client.service.start_workflow(start_request)
-    if err:
-        raise Exception(err)
+    start_response = await workflow_client.service.start_workflow_execution(request=start_request)
     execution = WorkflowExecution(workflow_id=start_request.workflow_id, run_id=start_response.run_id)
     stub_instance._execution = execution  # type: ignore
     return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution)
 
 
-def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod, args: List,
+async def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod, args: List,
                        workflow_options: WorkflowOptions = None, stub_instance: object = None):
-    execution_context: WorkflowExecutionContext = exec_workflow(workflow_client, wm, args,
+    execution_context: WorkflowExecutionContext = await exec_workflow(workflow_client, wm, args,
                                                                 workflow_options=workflow_options,
                                                                 stub_instance=stub_instance)
     return workflow_client.wait_for_close(execution_context)
