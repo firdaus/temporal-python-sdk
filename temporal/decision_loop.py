@@ -138,7 +138,7 @@ class DecisionEvents:
 
     def __post_init__(self):
         for event in self.decision_events:
-            if event.event_type == EventType.MarkerRecorded:
+            if event.event_type == EventType.EVENT_TYPE_MARKER_RECORDED:
                 self.markers.append(event)
 
     def get_optional_decision_event(self, event_id) -> HistoryEvent:
