@@ -42,7 +42,7 @@ class DecisionId:
 
     def __eq__(self, other: object):
         # TODO: unit test
-        if not isinstance(object, DecisionId):
+        if not isinstance(other, DecisionId):
             return False
         else:
             return (self.decision_target == other.decision_target) and (self.decision_event_id == other.decision_event_id)
