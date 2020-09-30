@@ -331,7 +331,7 @@ def workflow_method(func=None,
                     workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
                     execution_start_to_close_timeout_seconds=7200,  # (2 hours)
                     task_start_to_close_timeout_seconds=10,  # same timeout as Java library
-                    task_list=None):
+                    task_queue=None):
     def wrapper(fn):
         if not hasattr(fn, "_workflow_method"):
             fn._workflow_method = WorkflowMethod()
@@ -340,7 +340,7 @@ def workflow_method(func=None,
         fn._workflow_method._workflow_id_reuse_policy = workflow_id_reuse_policy
         fn._workflow_method._execution_start_to_close_timeout_seconds = execution_start_to_close_timeout_seconds
         fn._workflow_method._task_start_to_close_timeout_seconds = task_start_to_close_timeout_seconds
-        fn._workflow_method._task_list = task_list
+        fn._workflow_method._task_list = task_queue
         return fn
 
     if func and inspect.isfunction(func):
