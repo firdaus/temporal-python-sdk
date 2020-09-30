@@ -590,7 +590,7 @@ class ReplayDecider:
             raise Exception(f"No event handler for event type {event.event_type.name}")
         event_handler(self, event)  # type: ignore
 
-    def handle_workflow_execution_started(self, event: HistoryEvent):
+    async def handle_workflow_execution_started(self, event: HistoryEvent):
         start_event_attributes = event.workflow_execution_started_event_attributes
         self.decision_context.set_current_run_id(start_event_attributes.original_execution_run_id)
         if start_event_attributes.input is None or start_event_attributes.input == b'':
@@ -603,7 +603,7 @@ class ReplayDecider:
         assert self.workflow_task.workflow_instance
         self.tasks.append(self.workflow_task)
 
-    def handle_workflow_execution_cancel_requested(self, event: HistoryEvent):
+    async def handle_workflow_execution_cancel_requested(self, event: HistoryEvent):
         self.cancel_workflow_execution()
 
     def notify_decision_sent(self):
@@ -667,30 +667,30 @@ class ReplayDecider:
         decision.handle_completion_event()
         return decision.is_done()
 
-    def handle_activity_task_scheduled(self, event: HistoryEvent):
+    async def handle_activity_task_scheduled(self, event: HistoryEvent):
         decision = self.get_decision(DecisionId(DecisionTarget.ACTIVITY, event.event_id))
         decision.handle_initiated_event(event)
 
-    def handle_activity_task_started(self, event: HistoryEvent):
+    async def handle_activity_task_started(self, event: HistoryEvent):
         attr = event.activity_task_started_event_attributes
         decision = self.get_decision(DecisionId(DecisionTarget.ACTIVITY, attr.scheduled_event_id))
         decision.handle_started_event(event)
 
-    def handle_activity_task_completed(self, event: HistoryEvent):
+    async def handle_activity_task_completed(self, event: HistoryEvent):
         self.decision_context.handle_activity_task_completed(event)
 
-    def handle_activity_task_failed(self, event: HistoryEvent):
+    async def handle_activity_task_failed(self, event: HistoryEvent):
         self.decision_context.handle_activity_task_failed(event)
 
-    def handle_activity_task_timed_out(self, event: HistoryEvent):
+    async def handle_activity_task_timed_out(self, event: HistoryEvent):
         self.decision_context.handle_activity_task_timed_out(event)
 
-    def handle_decision_task_failed(self, event: HistoryEvent):
+    async def handle_decision_task_failed(self, event: HistoryEvent):
         attr = event.workflow_task_failed_event_attributes
         if attr and attr.cause == WorkflowTaskFailedCause.WORKFLOW_TASK_FAILED_CAUSE_RESET_WORKFLOW:
             self.decision_context.set_current_run_id(attr.new_run_id)
 
-    def handle_workflow_execution_signaled(self, event: HistoryEvent):
+    async def handle_workflow_execution_signaled(self, event: HistoryEvent):
         signaled_event_attributes = event.workflow_execution_signaled_event_attributes
         signal_input_payloads: Payloads = signaled_event_attributes.input
         if not signal_input_payloads:
@@ -779,15 +779,15 @@ class ReplayDecider:
         decision.handle_cancellation_failure_event(event)
         return decision.is_done()
 
-    def handle_timer_started(self, event: HistoryEvent):
+    async def handle_timer_started(self, event: HistoryEvent):
         decision = self.get_decision(DecisionId(DecisionTarget.TIMER, event.event_id))
         decision.handle_initiated_event(event)
 
-    def handle_timer_fired(self, event: HistoryEvent):
+    async def handle_timer_fired(self, event: HistoryEvent):
         attributes = event.timer_fired_event_attributes
         self.decision_context.handle_timer_fired(attributes)
 
-    def handle_marker_recorded(self, event: HistoryEvent):
+    async def handle_marker_recorded(self, event: HistoryEvent):
         self.decision_context.workflow_clock.handle_marker_recorded(event)
 
     def get_optional_decision_event(self, event_id: int) -> HistoryEvent:
@@ -817,7 +817,7 @@ class ReplayDecider:
 
 
 # noinspection PyUnusedLocal
-def noop(*args):
+async def noop(*args):
     pass
 
 
