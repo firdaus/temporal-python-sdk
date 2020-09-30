@@ -387,9 +387,9 @@ class DecisionContext:
         attr.input = parameters.input
         if parameters.heartbeat_timeout_seconds > 0:
             attr.heartbeat_timeout_seconds = parameters.heartbeat_timeout_seconds
-        attr.schedule_to_close_timeout_seconds = parameters.schedule_to_close_timeout_seconds
-        attr.schedule_to_start_timeout_seconds = parameters.schedule_to_start_timeout_seconds
-        attr.start_to_close_timeout_seconds = parameters.start_to_close_timeout_seconds
+        attr.schedule_to_close_timeout = parameters.schedule_to_close_timeout
+        attr.schedule_to_start_timeout = parameters.schedule_to_start_timeout
+        attr.start_to_close_timeout = parameters.start_to_close_timeout
         attr.activity_id = parameters.activity_id
         if not attr.activity_id:
             attr.activity_id = self.decider.get_and_increment_next_id()

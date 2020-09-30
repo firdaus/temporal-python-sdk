@@ -1,6 +1,7 @@
 import copy
 import inspect
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Callable, List
 
 from temporal.api.common.v1 import RetryPolicy, ActivityType, Payloads
@@ -37,15 +38,15 @@ class ExecuteActivityParameters:
     activity_type: ActivityType = None
     heartbeat_timeout_seconds: int = 0
     input: Payloads = None
-    schedule_to_close_timeout_seconds: int = 0
-    schedule_to_start_timeout_seconds: int = 0
-    start_to_close_timeout_seconds: int = 0
+    schedule_to_close_timeout: timedelta = None
+    schedule_to_start_timeout: timedelta = None
+    start_to_close_timeout: timedelta = None
     task_queue: str = ""
     retry_parameters: RetryParameters = None
 
 
-def activity_method(func: Callable = None, name: str = "", schedule_to_close_timeout_seconds: int = 0,
-                    schedule_to_start_timeout_seconds: int = 0, start_to_close_timeout_seconds: int = 0,
+def activity_method(func: Callable = None, name: str = "", schedule_to_close_timeout: timedelta = None,
+                    schedule_to_start_timeout: timedelta = None, start_to_close_timeout: timedelta = None,
                     heartbeat_timeout_seconds: int = 0, task_queue: str = "", retry_parameters: RetryParameters = None):
     def wrapper(fn: Callable):
         # noinspection PyProtectedMember
@@ -58,10 +59,9 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
             if self._retry_parameters:
                 parameters.retry_parameters = self._retry_parameters
             parameters.input = to_payloads(args)
-            # TODO PORT:
-            # from cadence.decision_loop import DecisionContext
-            # decision_context: DecisionContext = self._decision_context
-            # return await decision_context.schedule_activity_task(parameters=parameters)
+            from temporal.decision_loop import DecisionContext
+            decision_context: DecisionContext = self._decision_context
+            return await decision_context.schedule_activity_task(parameters=parameters)
 
         if not task_queue:
             raise Exception("task_queue parameter is mandatory")
@@ -69,9 +69,9 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
         execute_parameters = ExecuteActivityParameters()
         execute_parameters.activity_type = ActivityType()
         execute_parameters.activity_type.name = name if name else get_activity_method_name(fn)
-        execute_parameters.schedule_to_close_timeout_seconds = schedule_to_close_timeout_seconds
-        execute_parameters.schedule_to_start_timeout_seconds = schedule_to_start_timeout_seconds
-        execute_parameters.start_to_close_timeout_seconds = start_to_close_timeout_seconds
+        execute_parameters.schedule_to_close_timeout = schedule_to_close_timeout
+        execute_parameters.schedule_to_start_timeout = schedule_to_start_timeout
+        execute_parameters.start_to_close_timeout = start_to_close_timeout
         execute_parameters.heartbeat_timeout_seconds = heartbeat_timeout_seconds
         execute_parameters.task_queue = task_queue
         execute_parameters.retry_parameters = retry_parameters
