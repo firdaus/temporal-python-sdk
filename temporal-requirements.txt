@@ -16,6 +16,7 @@ more-itertools==7.0.0
 multidict==4.7.6
 pathspec==0.8.0
 protobuf==3.12.2
+pytz==2020.1
 regex==2020.6.8
 six==1.15.0
 stringcase==1.2.0

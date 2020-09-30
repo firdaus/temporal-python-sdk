@@ -1,9 +1,10 @@
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, tzinfo
 
 import json
+import pytz
 
 from .api.command.v1 import StartTimerCommandAttributes
 from .api.history.v1 import TimerFiredEventAttributes, HistoryEvent, TimerCanceledEventAttributes
@@ -27,7 +28,7 @@ class ClockDecisionContext:
     decider: ReplayDecider
     decision_context: DecisionContext
     scheduled_timers: Dict[int, OpenRequestInfo] = field(default_factory=dict)
-    replay_current_time_milliseconds: datetime = None
+    replay_current_time_milliseconds: datetime = datetime.fromtimestamp(0, tz=pytz.UTC)
     replaying: bool = True
     version_handler: MarkerHandler = None
 
