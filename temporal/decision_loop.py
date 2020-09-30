@@ -362,9 +362,8 @@ class EventLoopWrapper:
     def __post_init__(self):
         self.event_loop = asyncio.get_event_loop()
 
-    def run_event_loop_once(self):
-        self.event_loop.call_soon(self.event_loop.stop)
-        self.event_loop.run_forever()
+    async def run_event_loop_once(self):
+        await asyncio.sleep(0)
 
     def create_future(self) -> Future[Any]:
         return self.event_loop.create_future()
