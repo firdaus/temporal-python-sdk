@@ -512,14 +512,14 @@ class DecisionContext:
         generator.seed(lsb, version=2)
         return generator
 
-    def record_marker(self, marker_name: str, header: Header, details: bytes):
+    def record_marker(self, marker_name: str, header: Header, details: bytes) -> None:
         marker = RecordMarkerCommandAttributes()
         marker.marker_name = marker_name
         marker.header = header
         marker.details = details
-        decision = Command()
-        decision.decision_type = CommandType.COMMAND_TYPE_RECORD_MARKER
-        decision.record_marker_decision_attributes = marker
+        decision: Command = Command()
+        decision.command_type = CommandType.COMMAND_TYPE_RECORD_MARKER
+        decision.record_marker_command_attributes = marker
         next_decision_event_id = self.decider.next_decision_event_id
         decision_id = DecisionId(DecisionTarget.MARKER, next_decision_event_id)
         self.decider.add_decision(decision_id, MarkerDecisionStateMachine(id=decision_id, decision=decision))
@@ -615,25 +615,25 @@ class ReplayDecider:
         self.decision_events = decision_events
         self.next_decision_event_id = decision_events.next_decision_event_id
 
-    def complete_workflow_execution(self, ret_value):
+    def complete_workflow_execution(self, ret_value: object) -> None:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
-        decision = Command()
-        attr = CompleteWorkflowExecutionCommandAttributes()
-        attr.result = json.dumps(ret_value)
-        decision.complete_workflow_execution_decision_attributes = attr
-        decision.decision_type = CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION
+        decision: Command = Command()
+        attr: CompleteWorkflowExecutionCommandAttributes = CompleteWorkflowExecutionCommandAttributes()
+        attr.result = to_payloads(ret_value)
+        decision.complete_workflow_execution_command_attributes = attr
+        decision.command_type = CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
 
-    def fail_workflow_execution(self, exception):
+    def fail_workflow_execution(self, exception) -> None:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
         decision = Command()
         fail_attributes = FailWorkflowExecutionCommandAttributes()
         fail_attributes.reason = "WorkflowFailureException"
         fail_attributes.details = serialize_exception(exception)
-        decision.fail_workflow_execution_decision_attributes = fail_attributes
-        decision.decision_type = CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION
+        decision.fail_workflow_execution_command_attributes = fail_attributes
+        decision.command_type = CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
@@ -643,8 +643,8 @@ class ReplayDecider:
         decision = Command()
         attr = CancelWorkflowExecutionCommandAttributes()
         attr.details = None
-        decision.cancel_workflow_execution_decision_attributes = attr
-        decision.decision_type = CommandType.COMMAND_TYPE_CANCEL_WORKFLOW_EXECUTION
+        decision.cancel_workflow_execution_command_attributes = attr
+        decision.command_type = CommandType.COMMAND_TYPE_CANCEL_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
         self.add_decision(decision_id, CompleteWorkflowStateMachine(decision_id, decision))
         self.completed = True
