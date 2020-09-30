@@ -109,7 +109,7 @@ class WorkflowClient:
     options: WorkflowClientOptions
 
     @classmethod
-    def new_client(cls, host: str = "localhost", port: int = 7933, namespace: str = "",
+    def new_client(cls, host: str = "localhost", port: int = 7233, namespace: str = "",
                    options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS) -> WorkflowClient:
         service = create_workflow_service(host, port, timeout=timeout)
         return cls(service=service, namespace=namespace, options=options)
@@ -149,8 +149,8 @@ class WorkflowClient:
         stub_instance._execution = execution
         return stub_instance
 
-    def wait_for_close(self, context: WorkflowExecutionContext) -> object:
-        return self.wait_for_close_with_workflow_id(workflow_id=context.workflow_execution.workflow_id,
+    async def wait_for_close(self, context: WorkflowExecutionContext) -> object:
+        return await self.wait_for_close_with_workflow_id(workflow_id=context.workflow_execution.workflow_id,
                                                     run_id=context.workflow_execution.run_id,
                                                     workflow_type=context.workflow_type)
 
@@ -213,7 +213,7 @@ async def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod
     execution_context: WorkflowExecutionContext = await exec_workflow(workflow_client, wm, args,
                                                                 workflow_options=workflow_options,
                                                                 stub_instance=stub_instance)
-    return workflow_client.wait_for_close(execution_context)
+    return await workflow_client.wait_for_close(execution_context)
 
 
 async def exec_signal(workflow_client: WorkflowClient, sm: SignalMethod, args, stub_instance: object = None):
@@ -287,9 +287,9 @@ def get_workflow_method_name(method):
 
 
 def get_workflow_stub_fn(wm: WorkflowMethod):
-    def workflow_stub_fn(self, *args):
+    async def workflow_stub_fn(self, *args):
         assert self._workflow_client is not None
-        return exec_workflow_sync(self._workflow_client, wm, args,
+        return await exec_workflow_sync(self._workflow_client, wm, args,
                                   workflow_options=self._workflow_options, stub_instance=self)
 
     workflow_stub_fn._workflow_method = wm  # type: ignore
@@ -328,7 +328,7 @@ class WorkflowMethod(object):
 def workflow_method(func=None,
                     name=None,
                     workflow_id=None,
-                    workflow_id_reuse_policy=WorkflowIdReusePolicy.AllowDuplicateFailedOnly,
+                    workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
                     execution_start_to_close_timeout_seconds=7200,  # (2 hours)
                     task_start_to_close_timeout_seconds=10,  # same timeout as Java library
                     task_list=None):

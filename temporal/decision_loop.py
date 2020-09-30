@@ -5,6 +5,7 @@ import contextvars
 import datetime
 import json
 import socket
+import traceback
 import uuid
 import random
 import logging
@@ -554,41 +555,41 @@ class ReplayDecider:
     def __post_init__(self):
         self.decision_context = DecisionContext(decider=self)
 
-    def decide(self, events: List[HistoryEvent]):
+    async def decide(self, events: List[HistoryEvent]):
         helper = HistoryHelper(events)
         while helper.has_next():
             decision_events = helper.next()
-            self.process_decision_events(decision_events)
+            await self.process_decision_events(decision_events)
         return self.get_decisions()
 
-    def process_decision_events(self, decision_events: DecisionEvents):
+    async def process_decision_events(self, decision_events: DecisionEvents):
         self.decision_context.set_replaying(decision_events.replay)
         self.decision_context.set_replay_current_time_milliseconds(decision_events.replay_current_time_milliseconds)
 
         self.handle_decision_task_started(decision_events)
         for event in decision_events.markers:
             if not event.marker_recorded_event_attributes.marker_name == LOCAL_ACTIVITY_MARKER_NAME:
-                self.process_event(event);
+                await self.process_event(event);
         for event in decision_events.events:
-            self.process_event(event)
+            await self.process_event(event)
         if self.completed:
             return
         self.unblock_all()
-        self.event_loop.run_event_loop_once()
+        await self.event_loop.run_event_loop_once()
         if decision_events.replay:
             self.notify_decision_sent()
         for event in decision_events.decision_events:
-            self.process_event(event)
+            await self.process_event(event)
 
     def unblock_all(self):
         for t in self.tasks:
             t.unblock()
 
-    def process_event(self, event: HistoryEvent):
+    async def process_event(self, event: HistoryEvent):
         event_handler = event_handlers.get(event.event_type)
         if not event_handler:
             raise Exception(f"No event handler for event type {event.event_type.name}")
-        event_handler(self, event)  # type: ignore
+        await event_handler(self, event)  # type: ignore
 
     async def handle_workflow_execution_started(self, event: HistoryEvent):
         start_event_attributes = event.workflow_execution_started_event_attributes
@@ -599,7 +600,7 @@ class ReplayDecider:
             workflow_input = from_payloads(start_event_attributes.input)
         self.workflow_task = WorkflowMethodTask(task_id=self.execution_id, workflow_input=workflow_input,
                                                 worker=self.worker, workflow_type=self.workflow_type, decider=self)
-        self.event_loop.run_event_loop_once()
+        await self.event_loop.run_event_loop_once()
         assert self.workflow_task.workflow_instance
         self.tasks.append(self.workflow_task)
 
@@ -793,7 +794,7 @@ class ReplayDecider:
     def get_optional_decision_event(self, event_id: int) -> HistoryEvent:
         return self.decision_events.get_optional_decision_event(event_id)
 
-    def query(self, decision_task: PollWorkflowTaskQueueResponse, query: WorkflowQuery) -> object:
+    async def query(self, decision_task: PollWorkflowTaskQueueResponse, query: WorkflowQuery) -> object:
         query_args: Payloads = query.query_args
         if query_args is None:
             args = []
@@ -806,7 +807,7 @@ class ReplayDecider:
                                decider=self)
         self.tasks.append(task)
         task.start()
-        self.event_loop.run_event_loop_once()
+        await self.event_loop.run_event_loop_once()
         if task.status == Status.DONE:
             if task.exception_thrown:
                 raise task.exception_thrown
@@ -821,7 +822,7 @@ async def noop(*args):
     pass
 
 
-def on_timer_canceled(self: ReplayDecider, event: HistoryEvent):
+async def on_timer_canceled(self: ReplayDecider, event: HistoryEvent):
     self.decision_context.handle_timer_canceled(event)
 
 
@@ -876,8 +877,9 @@ class DecisionTaskLoop:
                 try:
                     if self.worker.is_stop_requested():
                         return
-                    self.service.set_next_timeout_cb(self.worker.raise_if_stop_requested)
-                    decision_task: PollWorkflowTaskQueueResponse = self.poll()
+                    # TODO: Do we still need this
+                    # self.service.set_next_timeout_cb(self.worker.raise_if_stop_requested)
+                    decision_task: PollWorkflowTaskQueueResponse = await self.poll()
                     if not decision_task:
                         continue
                     if decision_task.query:
@@ -888,8 +890,8 @@ class DecisionTaskLoop:
                             logger.error("Error")
                             self.respond_query(decision_task.task_token, None, serialize_exception(ex))
                     else:
-                        decisions = self.process_task(decision_task)
-                        self.respond_decisions(decision_task.task_token, decisions)
+                        decisions = await self.process_task(decision_task)
+                        await self.respond_decisions(decision_task.task_token, decisions)
                 except StopRequestedException:
                     return
         finally:
@@ -914,6 +916,7 @@ class DecisionTaskLoop:
             polling_end = datetime.datetime.now()
             logger.debug("PollWorkflowTaskQueue: %dms", (polling_end - polling_start).total_seconds() * 1000)
         except Exception as ex:  # TODO: Replace with equivalent of except TChannelException as ex:
+            traceback.print_exc()
             logger.error("PollWorkflowTaskQueue error: %s", ex)
             return None
         # TODO: Handle Exception returned by poll_workflow_task_queue
@@ -925,17 +928,17 @@ class DecisionTaskLoop:
             return None
         return task
 
-    def process_task(self, decision_task: PollWorkflowTaskQueueResponse) -> List[Command]:
+    async def process_task(self, decision_task: PollWorkflowTaskQueueResponse) -> List[Command]:
         execution_id = str(decision_task.workflow_execution)
         decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
-        decisions: List[Command] = decider.decide(decision_task.history.events)
+        decisions: List[Command] = await decider.decide(decision_task.history.events)
         decider.destroy()
         return decisions
 
-    def process_query(self, decision_task: PollWorkflowTaskQueueResponse) -> Payloads:
+    async def process_query(self, decision_task: PollWorkflowTaskQueueResponse) -> Payloads:
         execution_id = str(decision_task.workflow_execution)
         decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
-        decider.decide(decision_task.history.events)
+        await decider.decide(decision_task.history.events)
         try:
             result = decider.query(decision_task, decision_task.query)
             return to_payloads(result)
