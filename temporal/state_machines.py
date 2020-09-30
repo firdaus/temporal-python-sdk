@@ -198,18 +198,18 @@ class ActivityDecisionStateMachine(DecisionStateMachineBase):
         else:
             super().handle_cancellation_failure_event(event)
 
-    def create_schedule_activity_task_decision(self):
-        decision = Command()
+    def create_schedule_activity_task_decision(self) -> Command:
+        decision: Command = Command()
         decision.schedule_activity_task_command_attributes = self.schedule_attributes
-        decision.decision_type = CommandType.ScheduleActivityTask
+        decision.command_type = CommandType.COMMAND_TYPE_SCHEDULE_ACTIVITY_TASK
         return decision
 
-    def create_request_cancel_activity_task_decision(self):
+    def create_request_cancel_activity_task_decision(self) -> Command:
         try_cancel = RequestCancelActivityTaskCommandAttributes()
         try_cancel.activity_id = self.schedule_attributes.activity_id
-        decision = Command()
-        decision.request_cancel_activity_task_decision_attributes = try_cancel
-        decision.decision_type = CommandType.RequestCancelActivityTask
+        decision: Command = Command()
+        decision.request_cancel_activity_task_command_attributes = try_cancel
+        decision.command_type = CommandType.COMMAND_TYPE_REQUEST_CANCEL_ACTIVITY_TASK
         return decision
 
 
@@ -280,18 +280,18 @@ class TimerDecisionStateMachine(DecisionStateMachineBase):
     def is_done(self) -> bool:
         return self.state == DecisionState.COMPLETED or self.canceled
 
-    def create_cancel_timer_decision(self):
+    def create_cancel_timer_decision(self) -> Command:
         try_cancel = CancelTimerCommandAttributes()
         try_cancel.timer_id = self.start_timer_attributes.timer_id
         decision: Command = Command()
-        decision.cancel_timer_decision_attributes = try_cancel
-        decision.decision_type = CommandType.CancelTimer
+        decision.cancel_timer_command_attributes = try_cancel
+        decision.command_type = CommandType.COMMAND_TYPE_CANCEL_TIMER
         return decision
 
-    def create_start_timer_decision(self):
+    def create_start_timer_decision(self) -> Command:
         decision: Command = Command()
-        decision.start_timer_decision_attributes = self.start_timer_attributes
-        decision.decision_type = CommandType.StartTimer
+        decision.start_timer_command_attributes = self.start_timer_attributes
+        decision.command_type = CommandType.COMMAND_TYPE_START_TIMER
         return decision
 
 
