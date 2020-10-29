@@ -163,7 +163,8 @@ class WorkflowClient:
             history_event = history_response.history.events[0]
             if history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
                 completed_attributes = history_event.workflow_execution_completed_event_attributes
-                return from_payloads(completed_attributes.result)
+                payloads: List[object] = from_payloads(completed_attributes.result)
+                return payloads[0]
             elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED:
                 failed_attributes = history_event.workflow_execution_failed_event_attributes
                 exception = deserialize_exception(failed_attributes.failure)
