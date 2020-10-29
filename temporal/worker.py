@@ -136,11 +136,13 @@ class Worker:
     def stop(self, background=False):
         self.stop_requested = True
         if background:
-            for service in self.service_instances:
-                service.close()
+            return
         else:
             while self.threads_stopped != self.threads_started:
                 time.sleep(5)
+
+    def is_stopped(self):
+        return self.threads_stopped == self.threads_started
 
     def is_stop_requested(self):
         return self.stop_requested

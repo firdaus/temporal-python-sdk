@@ -1,6 +1,7 @@
 import pytest
 
 from temporal.workerfactory import WorkerFactory
+from . import cleanup_worker
 
 
 @pytest.fixture
@@ -21,4 +22,4 @@ def worker(request):
 
     yield worker_instance
 
-    worker_instance.stop(background=False)
+    cleanup_worker(worker_instance)
