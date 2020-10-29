@@ -260,7 +260,7 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.workflow_type = WorkflowType()
     start_request.workflow_type.name = wm._name
     start_request.task_queue = TaskQueue()
-    start_request.task_queue.name = wm._task_list
+    start_request.task_queue.name = wm._task_queue
     start_request.input = to_payloads(args)
     start_request.execution_start_to_close_timeout_seconds = wm._execution_start_to_close_timeout_seconds
     start_request.task_start_to_close_timeout_seconds = wm._task_start_to_close_timeout_seconds
@@ -322,7 +322,7 @@ class WorkflowMethod(object):
     _workflow_id_reuse_policy: WorkflowIdReusePolicy = None
     _execution_start_to_close_timeout_seconds: int = None
     _task_start_to_close_timeout_seconds: int = None
-    _task_list: str = None
+    _task_queue: str = None
     _cron_schedule: str = None
 
 
@@ -341,7 +341,7 @@ def workflow_method(func=None,
         fn._workflow_method._workflow_id_reuse_policy = workflow_id_reuse_policy
         fn._workflow_method._execution_start_to_close_timeout_seconds = execution_start_to_close_timeout_seconds
         fn._workflow_method._task_start_to_close_timeout_seconds = task_start_to_close_timeout_seconds
-        fn._workflow_method._task_list = task_queue
+        fn._workflow_method._task_queue = task_queue
         return fn
 
     if func and inspect.isfunction(func):
