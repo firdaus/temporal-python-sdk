@@ -65,7 +65,7 @@ async def heartbeat(service: WorkflowService, task_token: bytes, details: object
 class ActivityContext:
     service: WorkflowService = None
     activity_task: ActivityTask = None
-    domain: str = None
+    namespace: str = None
     do_not_complete: bool = False
 
     @staticmethod
@@ -103,8 +103,8 @@ class Activity:
         return ActivityContext.get().activity_task.workflow_execution
 
     @staticmethod
-    def get_domain() -> str:
-        return ActivityContext.get().domain
+    def get_namespace() -> str:
+        return ActivityContext.get().namespace
 
     @staticmethod
     def get_heartbeat_details() -> object:

@@ -67,7 +67,7 @@ async def activity_task_loop_func(worker: Worker):
             activity_context = ActivityContext()
             activity_context.service = service
             activity_context.activity_task = ActivityTask.from_poll_for_activity_task_response(task)
-            activity_context.domain = worker.namespace
+            activity_context.namespace = worker.namespace
             try:
                 ActivityContext.set(activity_context)
                 return_value = fn(*args)

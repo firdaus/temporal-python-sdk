@@ -18,7 +18,7 @@ class InternalServiceError(Exception):
 
 
 @dataclass
-class DomainAlreadyExistsError(Exception):
+class NamespaceAlreadyExistsError(Exception):
     message: str
 
 
@@ -61,15 +61,15 @@ class QueryFailedError(Exception):
 
 
 @dataclass
-class DomainNotActiveError(Exception):
+class NamespaceNotActiveError(Exception):
     message: str
-    domainName: str
+    namespaceName: str
     currentCluster: str
     activeCluster: str
 
     @property
-    def domain_name(self):
-        return self.domainName
+    def namespace_name(self):
+        return self.namespaceName
 
     @property
     def current_cluster(self):
@@ -93,7 +93,7 @@ class AccessDeniedError(Exception):
 @dataclass
 class RetryTaskError(Exception):
     message: str
-    domain_id: str
+    namespace_id: str
     workflow_id: str
     run_id: str
     next_event_id: int
@@ -109,13 +109,13 @@ class ClientVersionNotSupportedError(Exception):
 CADENCE_ERROR_FIELDS = {
     "badRequestError": BadRequestError,
     "internalServiceError": InternalServiceError,
-    "domainExistsError": DomainAlreadyExistsError,
+    "namespaceExistsError": NamespaceAlreadyExistsError,
     "sessionAlreadyExistError": WorkflowExecutionAlreadyStartedError,
     "entityNotExistError": EntityNotExistsError,
     "serviceBusyError": ServiceBusyError,
     "cancellationAlreadyRequestedError": CancellationAlreadyRequestedError,
     "queryFailedError": QueryFailedError,
-    "domainNotActiveError": DomainNotActiveError,
+    "namespaceNotActiveError": NamespaceNotActiveError,
     "limitExceededError": LimitExceededError,
     "workflowAlreadyStartedError": WorkflowExecutionAlreadyStartedError,
     "clientVersionNotSupportedError": ClientVersionNotSupportedError
