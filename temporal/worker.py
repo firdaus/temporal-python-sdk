@@ -82,7 +82,6 @@ class Worker:
             self.activities[f'{cls_name}::{camel_to_snake(method_name)}'] = fn
             self.activities[f'{cls_name}::{snake_to_camel(method_name)}'] = fn
             self.activities[f'{cls_name}::{snake_to_title(method_name)}'] = fn
-            print(self.activities)
 
     def register_workflow_implementation_type(self, impl_cls: type, workflow_cls_name: str = None):
         cls_name = workflow_cls_name if workflow_cls_name else _find_interface_class(impl_cls).__name__
