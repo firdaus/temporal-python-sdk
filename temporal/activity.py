@@ -83,10 +83,12 @@ class ActivityContext:
     async def heartbeat(self, details: object):
         await heartbeat(self.service, self.activity_task.task_token, details)
 
-    def get_heartbeat_details(self) -> List[object]:
+    def get_heartbeat_details(self) -> object:
         details: Payloads = self.activity_task.heartbeat_details
+        if not self.activity_task.heartbeat_details:
+            return None
         payloads: List[object] = from_payloads(details)
-        return payloads
+        return payloads[0]
 
     def do_not_complete_on_return(self):
         self.do_not_complete = True
@@ -111,8 +113,8 @@ class Activity:
         return ActivityContext.get().get_heartbeat_details()
 
     @staticmethod
-    def heartbeat(details: object):
-        ActivityContext.get().heartbeat(details)
+    async def heartbeat(details: object):
+        await ActivityContext.get().heartbeat(details)
 
     @staticmethod
     def get_activity_task() -> ActivityTask:
