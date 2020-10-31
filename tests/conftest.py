@@ -7,12 +7,12 @@ from . import cleanup_worker
 @pytest.fixture
 def worker(request):
     marker = request.node.get_closest_marker("worker_config")
-    domain = marker.args[0]
+    namespace = marker.args[0]
     task_queue = marker.args[1]
     activities = marker.kwargs.get("activities", [])
     workflows = marker.kwargs.get("workflows", [])
 
-    factory = WorkerFactory("localhost", 7233, domain)
+    factory = WorkerFactory("localhost", 7233, namespace)
     worker_instance = factory.new_worker(task_queue)
     for a_instance, a_cls in activities:
         worker_instance.register_activities_implementation(a_instance, a_cls)

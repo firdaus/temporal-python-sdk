@@ -5,7 +5,7 @@ from temporal.workflow import workflow_method, WorkflowClient, Workflow
 from temporal.activity_method import activity_method
 
 TASK_QUEUE = "test_activity_return_value"
-DOMAIN = "default"
+NAMESPACE = "default"
 
 
 class GreetingActivities:
@@ -36,10 +36,10 @@ class GreetingWorkflowImpl(GreetingWorkflow):
 
 
 @pytest.mark.asyncio
-@pytest.mark.worker_config(DOMAIN, TASK_QUEUE, activities=[(GreetingActivitiesImpl(), "GreetingActivities")],
+@pytest.mark.worker_config(NAMESPACE, TASK_QUEUE, activities=[(GreetingActivitiesImpl(), "GreetingActivities")],
                            workflows=[GreetingWorkflowImpl])
 async def test(worker):
-    client = WorkflowClient.new_client(namespace=DOMAIN)
+    client = WorkflowClient.new_client(namespace=NAMESPACE)
     greeting_workflow: GreetingWorkflow = client.new_workflow_stub(GreetingWorkflow)
     ret_value = await greeting_workflow.get_greeting()
 
