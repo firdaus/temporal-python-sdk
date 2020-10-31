@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import json
+import inspect
 from typing import List
 
 from temporal.activity import ActivityContext, ActivityTask, complete_exceptionally, complete
@@ -70,7 +71,10 @@ async def activity_task_loop_func(worker: Worker):
             activity_context.namespace = worker.namespace
             try:
                 ActivityContext.set(activity_context)
-                return_value = fn(*args)
+                if inspect.iscoroutinefunction(fn):
+                    return_value = await fn(*args)
+                else:
+                    return_value = fn(*args)
                 if activity_context.do_not_complete:
                     logger.info(f"Not completing activity {task.activity_type.name}({str(args)[1:-1]})")
                     continue
