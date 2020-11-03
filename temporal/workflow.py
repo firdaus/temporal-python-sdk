@@ -199,6 +199,9 @@ class WorkflowClient:
     def new_activity_completion_client(self):
         return ActivityCompletionClient(self.service)
 
+    def close(self):
+        self.service.channel.close()
+
 
 async def exec_workflow(workflow_client: WorkflowClient, wm: WorkflowMethod, args, workflow_options: WorkflowOptions = None,
                   stub_instance: object = None) -> WorkflowExecutionContext:
