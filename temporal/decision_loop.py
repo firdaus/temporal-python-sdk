@@ -38,7 +38,7 @@ from .api.workflowservice.v1 import PollWorkflowTaskQueueRequest, PollWorkflowTa
 
 from .conversions import from_payloads, to_payloads
 from .decisions import DecisionId, DecisionTarget
-from .exception_handling import serialize_exception, deserialize_exception
+from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
 from .exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
     ActivityTaskTimeoutException, SignalNotFound, ActivityFailureException, QueryNotFound, QueryDidNotComplete
 from .service_helpers import get_identity, create_workflow_service
@@ -411,11 +411,13 @@ class DecisionContext:
             pass
         ex1 = future.exception()
         if ex1:
-            # TODO: test str(serialize_exception())
+            # We are relying on this behavior to serialize Exceptions:
+            # e = Exception("1", "2", "3")
+            # assert e.args == ('1', '2', '3')
             activity_failure = ActivityFailureException(scheduled_event_id,
                                                         parameters.activity_type.name,
                                                         parameters.activity_id,
-                                                        str(serialize_exception(ex1)))
+                                                        failure_to_str(serialize_exception(ex1)))
             raise activity_failure
         assert future.done()
         payloads: Payloads = future.result()
