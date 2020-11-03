@@ -3,7 +3,7 @@ import logging
 import traceback
 from typing import Optional
 
-import tblib # type: ignore
+import tblib  # type: ignore
 
 from temporal.api.failure.v1 import Failure, ApplicationFailureInfo
 
@@ -24,10 +24,10 @@ class ExternalException(Exception):
 def exception_class_fqn(o):
     # Copied from: https://stackoverflow.com/a/2020083
     module = o.__class__.__module__
-    if module is None or module == str.__class__.__module__:
-        return o.__class__.__name__  # Avoid reporting __builtin__
-    else:
-        return module + '.' + o.__class__.__name__
+    # if module is None or module == str.__class__.__module__:
+    #     return o.__class__.__name__  # Avoid reporting __builtin__
+    # else:
+    return module + '.' + o.__class__.__name__
 
 
 def import_class_from_string(path):
@@ -73,9 +73,13 @@ def deserialize_exception(details: Failure) -> Exception:
         try:
             klass = import_class_from_string(exception_cls_name)
             exception = klass(*details_dict["args"])
-            t = tblib.Traceback.from_string(details_dict["traceback"])
-            assert exception is not None
-            exception.with_traceback(t.as_traceback())
+            traceback_string: str = details_dict["traceback"]
+            # when complete_exceptionally() is invoked, the Exception has no
+            # traceback, so don't try to deserialize the traceback if there is none
+            if len(traceback_string.split("\n")) > 2:
+                t = tblib.Traceback.from_string(traceback_string)
+                assert exception is not None
+                exception.with_traceback(t.as_traceback())
         except Exception as e:
             exception = None
             logger.error("Failed to deserialize exception (details=%s) cause=%r", details_dict, e)
@@ -85,3 +89,12 @@ def deserialize_exception(details: Failure) -> Exception:
         return ExternalException(details)
     else:
         return exception
+
+
+def failure_to_str(f: Failure) -> str:
+    return f.to_json()
+
+
+def str_to_failure(s: str) -> Failure:
+    f = Failure()
+    return f.from_json(s)
