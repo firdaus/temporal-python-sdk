@@ -132,11 +132,11 @@ class ActivityCompletionClient:
     def heartbeat(self, task_token: bytes, details: object):
         heartbeat(self.service, task_token, details)
 
-    def complete(self, task_token: bytes, return_value: object):
-        complete(self.service, task_token, return_value)
+    async def complete(self, task_token: bytes, return_value: object):
+        await complete(self.service, task_token, return_value)
 
-    def complete_exceptionally(self, task_token: bytes, ex: Exception):
-        complete_exceptionally(self.service, task_token, ex)
+    async def complete_exceptionally(self, task_token: bytes, ex: Exception):
+        await complete_exceptionally(self.service, task_token, ex)
 
 
 async def complete_exceptionally(service, task_token, ex: Exception):
