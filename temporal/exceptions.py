@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 from temporal.api.common.v1 import WorkflowExecution
 from temporal.api.enums.v1 import TimeoutType, WorkflowExecutionStatus
-from temporal.exception_handling import deserialize_exception
+from temporal.api.failure.v1 import Failure
+from temporal.exception_handling import deserialize_exception, str_to_failure
 
 
 class IllegalStateException(BaseException):
@@ -76,20 +77,26 @@ class ActivityException(WorkflowOperationException):
 
 
 class ActivityFailureException(ActivityException):
+    """
+    cause should be the result of failure_to_str()
+    Note: Don't change cause to be of type Failure, it needs to be an "str" to make it easier to handle serialization
+    of Exceptions.
+    """
     def __init__(self, event_id: int, activity_type: str, activity_id: str, cause: str):
         super().__init__(event_id, activity_type, activity_id)
         self.cause: str = cause
         self.attempt: int = None
         self.backoff: int = 0
 
-    def set_cause(self):
-        if self.cause:
-            cause_ex = deserialize_exception(self.cause)
-            self.__cause__ = cause_ex
+    # def set_cause(self):
+    #     if self.cause:
+    #         cause_ex = deserialize_exception(self.cause)
+    #         self.__cause__ = cause_ex
 
     def get_cause(self):
         if self.cause:
-            return deserialize_exception(self.cause)
+            f: Failure = str_to_failure(self.cause)
+            return deserialize_exception(f)
         else:
             return None
 
