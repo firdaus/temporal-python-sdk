@@ -26,4 +26,5 @@ def teardown_module():
 
 def cleanup_worker(worker: Worker):
     global _workers
+    worker.stop(background=True)
     _workers.append(worker)
