@@ -14,21 +14,19 @@ def get_activity_method_name(method: Callable):
 
 @dataclass
 class RetryParameters:
-    initial_interval_in_seconds: int = None
+    initial_interval: timedelta = None
     backoff_coefficient: float = None
-    maximum_interval_in_seconds: int = None
+    maximum_interval: timedelta = None
     maximum_attempts: int = None
-    non_retriable_error_reasons: List[str] = field(default_factory=list)
-    expiration_interval_in_seconds: int = None
+    non_retryable_error_types: List[str] = field(default_factory=list)
 
     def to_retry_policy(self) -> RetryPolicy:
         policy = RetryPolicy()
-        policy.initial_interval_in_seconds = self.initial_interval_in_seconds
+        policy.initial_interval = self.initial_interval
         policy.backoff_coefficient = self.backoff_coefficient
-        policy.maximum_interval_in_seconds = self.maximum_interval_in_seconds
+        policy.maximum_interval = self.maximum_interval
         policy.maximum_attempts = self.maximum_attempts
-        policy.non_retriable_error_reasons = self.non_retriable_error_reasons
-        policy.expiration_interval_in_seconds = self.expiration_interval_in_seconds
+        policy.non_retryable_error_types = self.non_retryable_error_types
         return policy
 
 
@@ -36,7 +34,7 @@ class RetryParameters:
 class ExecuteActivityParameters:
     activity_id: str = ""
     activity_type: ActivityType = None
-    heartbeat_timeout_seconds: int = 0
+    heartbeat_timeout: timedelta = None
     input: Payloads = None
     schedule_to_close_timeout: timedelta = None
     schedule_to_start_timeout: timedelta = None
@@ -47,7 +45,7 @@ class ExecuteActivityParameters:
 
 def activity_method(func: Callable = None, name: str = "", schedule_to_close_timeout: timedelta = None,
                     schedule_to_start_timeout: timedelta = None, start_to_close_timeout: timedelta = None,
-                    heartbeat_timeout_seconds: int = 0, task_queue: str = "", retry_parameters: RetryParameters = None):
+                    heartbeat_timeout: timedelta = None, task_queue: str = "", retry_parameters: RetryParameters = None):
     def wrapper(fn: Callable):
         # noinspection PyProtectedMember
         async def stub_activity_fn(self, *args):
@@ -72,7 +70,7 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
         execute_parameters.schedule_to_close_timeout = schedule_to_close_timeout
         execute_parameters.schedule_to_start_timeout = schedule_to_start_timeout
         execute_parameters.start_to_close_timeout = start_to_close_timeout
-        execute_parameters.heartbeat_timeout_seconds = heartbeat_timeout_seconds
+        execute_parameters.heartbeat_timeout = heartbeat_timeout
         execute_parameters.task_queue = task_queue
         execute_parameters.retry_parameters = retry_parameters
         # noinspection PyTypeHints
@@ -87,20 +85,20 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
 
 @dataclass
 class ActivityOptions:
-    schedule_to_close_timeout_seconds: int = None
-    schedule_to_start_timeout_seconds: int = None
-    start_to_close_timeout_seconds: int = None
-    heartbeat_timeout_seconds: int = None
+    schedule_to_close_timeout: timedelta = None
+    schedule_to_start_timeout: timedelta = None
+    start_to_close_timeout: timedelta = None
+    heartbeat_timeout: timedelta = None
     task_queue: str = None
 
     def fill_execute_activity_parameters(self, execute_parameters: ExecuteActivityParameters):
-        if self.schedule_to_close_timeout_seconds is not None:
-            execute_parameters.schedule_to_close_timeout_seconds = self.schedule_to_close_timeout_seconds
-        if self.schedule_to_start_timeout_seconds is not None:
-            execute_parameters.schedule_to_start_timeout_seconds = self.schedule_to_start_timeout_seconds
-        if self.start_to_close_timeout_seconds is not None:
-            execute_parameters.start_to_close_timeout_seconds = self.start_to_close_timeout_seconds
-        if self.heartbeat_timeout_seconds is not None:
-            execute_parameters.heartbeat_timeout_seconds = self.heartbeat_timeout_seconds
+        if self.schedule_to_close_timeout is not None:
+            execute_parameters.schedule_to_close_timeout = self.schedule_to_close_timeout
+        if self.schedule_to_start_timeout is not None:
+            execute_parameters.schedule_to_start_timeout = self.schedule_to_start_timeout
+        if self.start_to_close_timeout is not None:
+            execute_parameters.start_to_close_timeout = self.start_to_close_timeout
+        if self.heartbeat_timeout is not None:
+            execute_parameters.heartbeat_timeout = self.heartbeat_timeout
         if self.task_queue is not None:
             execute_parameters.task_queue = self.task_queue

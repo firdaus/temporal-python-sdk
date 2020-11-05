@@ -42,7 +42,7 @@ class GreetingWorkflow:
 class GreetingWorkflowImpl(GreetingWorkflow):
 
     def __init__(self):
-        retry_parameters = RetryParameters(initial_interval_in_seconds=1, backoff_coefficient=2.0, maximum_attempts=3)
+        retry_parameters = RetryParameters(backoff_coefficient=2.0, maximum_attempts=3)
         self.greeting_activities: GreetingActivities = Workflow.new_activity_stub(GreetingActivities,
                                                                                   retry_parameters=retry_parameters)
 

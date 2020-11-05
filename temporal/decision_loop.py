@@ -385,8 +385,8 @@ class DecisionContext:
         attr = ScheduleActivityTaskCommandAttributes()
         attr.activity_type = parameters.activity_type
         attr.input = parameters.input
-        if parameters.heartbeat_timeout_seconds > 0:
-            attr.heartbeat_timeout_seconds = parameters.heartbeat_timeout_seconds
+        if parameters.heartbeat_timeout:
+            attr.heartbeat_timeout = parameters.heartbeat_timeout
         attr.schedule_to_close_timeout = parameters.schedule_to_close_timeout
         attr.schedule_to_start_timeout = parameters.schedule_to_start_timeout
         attr.start_to_close_timeout = parameters.start_to_close_timeout
