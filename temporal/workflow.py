@@ -5,6 +5,7 @@ import json
 import random
 import uuid
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Callable, List, Type, Dict, Tuple, Any
 from uuid import uuid4
 
@@ -265,8 +266,11 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.task_queue = TaskQueue()
     start_request.task_queue.name = wm._task_queue
     start_request.input = to_payloads(args)
-    start_request.execution_start_to_close_timeout_seconds = wm._execution_start_to_close_timeout_seconds
-    start_request.task_start_to_close_timeout_seconds = wm._task_start_to_close_timeout_seconds
+
+    start_request.workflow_execution_timeout = wm._workflow_execution_timeout
+    start_request.workflow_run_timeout = wm._workflow_run_timeout
+    start_request.workflow_task_timeout = wm._workflow_task_timeout
+
     start_request.identity = get_identity()
     start_request.workflow_id_reuse_policy = wm._workflow_id_reuse_policy
     start_request.request_id = str(uuid4())
@@ -323,18 +327,20 @@ class WorkflowMethod(object):
     _name: str = None
     _workflow_id: str = None
     _workflow_id_reuse_policy: WorkflowIdReusePolicy = None
-    _execution_start_to_close_timeout_seconds: int = None
-    _task_start_to_close_timeout_seconds: int = None
     _task_queue: str = None
     _cron_schedule: str = None
+    _workflow_execution_timeout: timedelta = None
+    _workflow_run_timeout: timedelta = None
+    _workflow_task_timeout: timedelta = None
 
 
 def workflow_method(func=None,
                     name=None,
                     workflow_id=None,
                     workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-                    execution_start_to_close_timeout_seconds=7200,  # (2 hours)
-                    task_start_to_close_timeout_seconds=10,  # same timeout as Java library
+                    workflow_execution_timeout=timedelta(seconds=7200),  # (2 hours)
+                    workflow_run_timeout=timedelta(seconds=7200),  # 2 hours
+                    workflow_task_timeout=timedelta(seconds=60),
                     task_queue=None):
     def wrapper(fn):
         if not hasattr(fn, "_workflow_method"):
@@ -342,9 +348,10 @@ def workflow_method(func=None,
         fn._workflow_method._name = name if name else get_workflow_method_name(fn)
         fn._workflow_method._workflow_id = workflow_id
         fn._workflow_method._workflow_id_reuse_policy = workflow_id_reuse_policy
-        fn._workflow_method._execution_start_to_close_timeout_seconds = execution_start_to_close_timeout_seconds
-        fn._workflow_method._task_start_to_close_timeout_seconds = task_start_to_close_timeout_seconds
         fn._workflow_method._task_queue = task_queue
+        fn._workflow_method._workflow_execution_timeout = workflow_execution_timeout
+        fn._workflow_method._workflow_run_timeout = workflow_run_timeout
+        fn._workflow_method._workflow_task_timeout = workflow_task_timeout
         return fn
 
     if func and inspect.isfunction(func):
