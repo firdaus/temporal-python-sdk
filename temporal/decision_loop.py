@@ -633,8 +633,7 @@ class ReplayDecider:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
         decision = Command()
         fail_attributes = FailWorkflowExecutionCommandAttributes()
-        fail_attributes.reason = "WorkflowFailureException"
-        fail_attributes.details = serialize_exception(exception)
+        fail_attributes.failure = serialize_exception(exception)
         decision.fail_workflow_execution_command_attributes = fail_attributes
         decision.command_type = CommandType.COMMAND_TYPE_FAIL_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
