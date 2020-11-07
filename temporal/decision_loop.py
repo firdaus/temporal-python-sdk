@@ -576,16 +576,22 @@ class ReplayDecider:
             await self.process_event(event)
         if self.completed:
             return
-        self.unblock_all()
-        await self.event_loop.run_event_loop_once()
+        await self.unblock_all()
         if decision_events.replay:
             self.notify_decision_sent()
         for event in decision_events.decision_events:
             await self.process_event(event)
 
-    def unblock_all(self):
+    async def unblock_all(self):
+        workflow_task: WorkflowMethodTask = None
         for t in self.tasks:
-            t.unblock()
+            if isinstance(t, SignalMethodTask):
+                t.unblock()
+                await self.event_loop.run_event_loop_once()
+            elif isinstance(t, WorkflowMethodTask):
+                workflow_task = t
+        workflow_task.unblock()
+        await self.event_loop.run_event_loop_once()
 
     async def process_event(self, event: HistoryEvent):
         event_handler = event_handlers.get(event.event_type)
