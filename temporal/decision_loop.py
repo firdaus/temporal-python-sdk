@@ -421,7 +421,7 @@ class DecisionContext:
             raise activity_failure
         assert future.done()
         payloads: Payloads = future.result()
-        return from_payloads(payloads)
+        return from_payloads(payloads)[0]
 
     async def schedule_timer(self, seconds: int):
         future = self.decider.event_loop.create_future()
