@@ -628,7 +628,7 @@ class ReplayDecider:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
         decision: Command = Command()
         attr: CompleteWorkflowExecutionCommandAttributes = CompleteWorkflowExecutionCommandAttributes()
-        attr.result = to_payloads(ret_value)
+        attr.result = to_payloads([ret_value])
         decision.complete_workflow_execution_command_attributes = attr
         decision.command_type = CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
