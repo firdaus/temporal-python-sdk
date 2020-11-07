@@ -305,18 +305,18 @@ def get_workflow_stub_fn(wm: WorkflowMethod):
 
 
 def get_signal_stub_fn(sm: SignalMethod):
-    def signal_stub_fn(self, *args):
+    async def signal_stub_fn(self, *args):
         assert self._workflow_client is not None
-        return exec_signal(self._workflow_client, sm, args, stub_instance=self)
+        return await exec_signal(self._workflow_client, sm, args, stub_instance=self)
 
     signal_stub_fn._signal_method = sm  # type: ignore
     return signal_stub_fn
 
 
 def get_query_stub_fn(qm: QueryMethod):
-    def query_stub_fn(self, *args):
+    async def query_stub_fn(self, *args):
         assert self._workflow_client is not None
-        return exec_query(self._workflow_client, qm, args, stub_instance=self)
+        return await exec_query(self._workflow_client, qm, args, stub_instance=self)
 
     query_stub_fn._query_method = qm  # type: ignore
     return query_stub_fn
