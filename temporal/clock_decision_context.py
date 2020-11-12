@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, Union
-from datetime import datetime, tzinfo
+from datetime import datetime, tzinfo, timedelta
 
 import json
 import pytz
@@ -50,7 +50,7 @@ class ClockDecisionContext:
         firing_time = (self.current_time_millis().timestamp() * 1000) + delay_seconds * 1000
         context = OpenRequestInfo(user_context=firing_time)
         timer = StartTimerCommandAttributes()
-        timer.start_to_fire_timeout_seconds = delay_seconds
+        timer.start_to_fire_timeout = timedelta(seconds=delay_seconds)
         timer.timer_id = str(self.decider.get_and_increment_next_id())
         start_event_id: int = self.decider.start_timer(timer)
         context.completion_handle = lambda ctx, e: callback(e)  # type: ignore
