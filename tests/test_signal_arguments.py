@@ -2,7 +2,7 @@ import pytest
 
 from temporal.workflow import workflow_method, WorkflowClient, signal_method, Workflow
 
-TASK_QUEUE = "test_start_signal_tq"
+TASK_QUEUE = "test_start_signal_arguments_tq"
 NAMESPACE = "default"
 
 
