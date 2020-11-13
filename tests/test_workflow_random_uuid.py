@@ -3,7 +3,7 @@ from uuid import UUID
 import pytest
 from temporal.workflow import workflow_method, WorkflowClient, Workflow
 
-TASK_QUEUE = "test_workflow_uuid_tq"
+TASK_QUEUE = "test_workflow_random_uuid_tq"
 NAMESPACE = "default"
 
 a = []
