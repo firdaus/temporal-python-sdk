@@ -3,15 +3,17 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, Union
 from datetime import datetime, tzinfo, timedelta
 
-import json
 import pytz
 
 from .api.command.v1 import StartTimerCommandAttributes
+from .api.common.v1 import Payloads, Payload
 from .api.history.v1 import TimerFiredEventAttributes, HistoryEvent, TimerCanceledEventAttributes
+from .conversions import to_payloads, from_payloads
 from .decision_loop import ReplayDecider, DecisionContext
 from .exceptions import CancellationException
 from .marker import MarkerHandler, MarkerInterface, MarkerResult
 from .util import OpenRequestInfo
+from . import DEFAULT_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +22,6 @@ MUTABLE_SIDE_EFFECT_MARKER_NAME = "MutableSideEffect"
 VERSION_MARKER_NAME = "Version"
 LOCAL_ACTIVITY_MARKER_NAME = "LocalActivity"
 
-
-DEFAULT_VERSION = -1
 
 @dataclass
 class ClockDecisionContext:
@@ -86,17 +86,18 @@ class ClockDecisionContext:
         if self.decider.handle_timer_canceled(event):
             self.timer_cancelled(started_event_id, None)
 
-    def get_version(self, change_id: str, min_supported: int, max_supported) -> int:
+    def get_version(self, change_id: str, min_supported: int, max_supported: int) -> int:
         def func():
-            return json.dumps(max_supported)
+            d: Dict[str, Payloads] = {"VERSION": to_payloads([max_supported])}
+            return d
 
-        result: bytes = self.version_handler.handle(change_id, func)
+        result: Dict[str, Payloads] = self.version_handler.handle(change_id, func)
         if result is None:
-            result = json.dumps(DEFAULT_VERSION).encode("utf-8")
+            result = {"VERSION": to_payloads([DEFAULT_VERSION])}
             self.version_handler.set_data(change_id, result)
             self.version_handler.mark_replayed(change_id)  # so that we don't ever emit a MarkerRecorded for this
 
-        version: int = json.loads(result)
+        version: int = from_payloads(result["VERSION"])[0]  # type: ignore
         self.validate_version(change_id, version, min_supported, max_supported)
         return version
 
@@ -122,7 +123,7 @@ class ClockDecisionContext:
         elif VERSION_MARKER_NAME == name:
             marker_data = MarkerInterface.from_event_attributes(attributes)
             change_id: str = marker_data.get_id()
-            data: bytes = marker_data.get_data()
+            data: Dict[str, Payloads] = marker_data.get_data()
             self.version_handler.mutable_marker_results[change_id] = MarkerResult(data=data)
         elif MUTABLE_SIDE_EFFECT_MARKER_NAME != name:
             # TODO

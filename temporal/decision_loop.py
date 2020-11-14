@@ -515,7 +515,7 @@ class DecisionContext:
         generator.seed(lsb, version=2)
         return generator
 
-    def record_marker(self, marker_name: str, header: Header, details: bytes) -> None:
+    def record_marker(self, marker_name: str, header: Header, details: Dict[str, Payloads]) -> None:
         marker = RecordMarkerCommandAttributes()
         marker.marker_name = marker_name
         marker.header = header
