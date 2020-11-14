@@ -27,7 +27,7 @@ from .activity_method import ExecuteActivityParameters
 from .api.command.v1 import Command, CompleteWorkflowExecutionCommandAttributes, RecordMarkerCommandAttributes, \
     FailWorkflowExecutionCommandAttributes, ScheduleActivityTaskCommandAttributes, \
     CancelWorkflowExecutionCommandAttributes, StartTimerCommandAttributes
-from .api.common.v1 import WorkflowType, Header, Payloads
+from .api.common.v1 import WorkflowType, Header, Payloads, WorkflowExecution
 from .api.enums.v1 import EventType, CommandType, QueryResultType, WorkflowTaskFailedCause
 from .api.history.v1 import HistoryEvent, TimerFiredEventAttributes, ActivityTaskTimedOutEventAttributes
 from .api.query.v1 import WorkflowQuery
@@ -551,6 +551,7 @@ class ReplayDecider:
     decision_events: DecisionEvents = None
     decisions: OrderedDict[DecisionId, DecisionStateMachine] = field(default_factory=OrderedDict)
     decision_context: DecisionContext = None
+    workflow_execution: WorkflowExecution = None
 
     activity_id_to_scheduled_event_id: Dict[str, int] = field(default_factory=dict)
 
@@ -937,14 +938,16 @@ class DecisionTaskLoop:
 
     async def process_task(self, decision_task: PollWorkflowTaskQueueResponse) -> List[Command]:
         execution_id = str(decision_task.workflow_execution)
-        decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
+        decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker,
+                                workflow_execution=decision_task.workflow_execution)
         decisions: List[Command] = await decider.decide(decision_task.history.events)
         decider.destroy()
         return decisions
 
     async def process_query(self, decision_task: PollWorkflowTaskQueueResponse) -> Payloads:
         execution_id = str(decision_task.workflow_execution)
-        decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker)
+        decider = ReplayDecider(execution_id, decision_task.workflow_type, self.worker,
+                                workflow_execution=decision_task.workflow_execution)
         await decider.decide(decision_task.history.events)
         try:
             result = decider.query(decision_task, decision_task.query)

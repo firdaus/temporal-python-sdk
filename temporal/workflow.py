@@ -92,6 +92,18 @@ class Workflow:
         task: ITask = ITask.current()
         return task.decider.decision_context.get_logger(name)
 
+    @staticmethod
+    def get_workflow_id():
+        from .decision_loop import ITask
+        task: ITask = ITask.current()
+        return task.decider.workflow_execution.workflow_id
+
+    @staticmethod
+    def get_run_id():
+        from .decision_loop import ITask
+        task: ITask = ITask.current()
+        return task.decider.workflow_execution.run_id
+
 
 class WorkflowStub:
     pass
