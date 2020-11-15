@@ -892,11 +892,11 @@ class DecisionTaskLoop:
                         continue
                     if decision_task.query:
                         try:
-                            result: Payloads = self.process_query(decision_task)
-                            self.respond_query(decision_task.task_token, result, None)
+                            result: Payloads = await self.process_query(decision_task)
+                            await self.respond_query(decision_task.task_token, result, None)
                         except Exception as ex:
                             logger.error("Error")
-                            self.respond_query(decision_task.task_token, None, serialize_exception(ex))
+                            await self.respond_query(decision_task.task_token, None, str(ex))
                     else:
                         decisions = await self.process_task(decision_task)
                         await self.respond_decisions(decision_task.task_token, decisions)
@@ -950,8 +950,8 @@ class DecisionTaskLoop:
                                 workflow_execution=decision_task.workflow_execution)
         await decider.decide(decision_task.history.events)
         try:
-            result = decider.query(decision_task, decision_task.query)
-            return to_payloads(result)
+            result = await decider.query(decision_task, decision_task.query)
+            return to_payloads([result])
         finally:
             decider.destroy()
 

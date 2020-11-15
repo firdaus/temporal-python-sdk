@@ -265,7 +265,7 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     """
     if response.query_rejected:
         raise QueryRejectedException(response.query_rejected.status)
-    return from_payloads(response.query_result)
+    return from_payloads(response.query_result)[0]
 
 
 def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowMethod,
