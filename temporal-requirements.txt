@@ -1,6 +1,6 @@
 appdirs==1.4.4
 attrs==19.3.0
-betterproto==1.2.5
+betterproto @ git+https://github.com/firdaus/python-betterproto@f7e9ccc6dab6cd42626ad420e3ebfe2a79b9f699
 black==19.10b0
 click==7.1.2
 dataclasses-json==0.3.8
