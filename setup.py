@@ -15,7 +15,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/firdaus/temporal-python-sdk",
-    packages=setuptools.find_packages(exclude=["temporal.tests", "temporal-api", "test-utils", "cadence"]),
+    packages=setuptools.find_packages(exclude=["cadence", "tests", "cadence.*", "tests.*"]),
     install_requires=[
     ],
     classifiers=[
