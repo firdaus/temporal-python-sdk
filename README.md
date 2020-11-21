@@ -1,4 +1,8 @@
-# Unofficial Python SDK for Temporal SDK
+# Unofficial Python SDK for the Temporal Workflow Engine
+
+## Status
+
+This should be considered EXPERIMENTAL at the moment. At the moment, all I can say is that the [test cases](https://gist.github.com/firdaus/4ec442f2c626122ad0c8d379a7ffd8bc) currently pass. I have not tested this for any real world use cases yet. 
 
 ## Roadmap 
 
