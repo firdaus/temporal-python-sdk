@@ -1,24 +1,22 @@
 import setuptools
+from pkg_resources import parse_requirements
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+install_reqs = parse_requirements("requirements.txt")
+
 setuptools.setup(
-    name="cadence-client",
-    version="1.0.0-beta3",
+    name="temporal-python-sdk",
+    version="1.0.0-beta1",
     author="Mohammed Firdaus",
     author_email="firdaus.halim@gmail.com",
-    description="Python framework for Cadence Workflow Service",
+    description="Unofficial Python SDK for the Temporal Workflow Engine",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/firdaus/cadence-python",
-    packages=setuptools.find_packages(exclude=["cadence.tests", "cadence.spikes"]),
+    url="https://github.com/firdaus/temporal-python-sdk",
+    packages=setuptools.find_packages(exclude=["temporal.tests", "temporal-api", "test-utils", "cadence"]),
     install_requires=[
-        "dataclasses-json>=0.3.8",
-        "more-itertools>=7.0.0",
-        "ply>=3.11",
-        "tblib>=1.6.0",
-        "thriftrw>=1.7.2",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
