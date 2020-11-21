@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from .activity import ActivityCompletionClient
 from .activity_method import RetryParameters, ActivityOptions
-from .api.common.v1 import WorkflowType, WorkflowExecution
+from .api.common.v1 import WorkflowType, WorkflowExecution, SearchAttributes, Memo
 from .api.enums.v1 import WorkflowIdReusePolicy, HistoryEventFilterType, EventType
 from .api.history.v1 import WorkflowExecutionTerminatedEventAttributes
 from .api.query.v1 import WorkflowQuery
@@ -20,11 +20,11 @@ from .api.workflowservice.v1 import StartWorkflowExecutionRequest, GetWorkflowEx
     QueryWorkflowRequest, QueryWorkflowResponse, SignalWorkflowExecutionRequest, WorkflowServiceStub
 
 from .constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
-from .conversions import to_payloads, from_payloads
+from .conversions import to_payloads, from_payloads, to_payload
 from .errors import QueryFailedError
 from .exception_handling import deserialize_exception
 from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
-    QueryFailureException
+    QueryFailureException, WorkflowOperationException
 from .service_helpers import create_workflow_service, get_identity
 
 
@@ -139,6 +139,8 @@ class WorkflowClient:
                              workflow_options=options, stub_instance=stub)
 
     def new_workflow_stub(self, cls: Type, workflow_options: WorkflowOptions = None):
+        if not workflow_options:
+            workflow_options = WorkflowOptions()
         attrs: Dict[str, Any] = {}
         attrs["_workflow_client"] = self
         attrs["_workflow_options"] = workflow_options
@@ -218,7 +220,7 @@ class WorkflowClient:
 
 async def exec_workflow(workflow_client: WorkflowClient, wm: WorkflowMethod, args, workflow_options: WorkflowOptions = None,
                   stub_instance: object = None) -> WorkflowExecutionContext:
-    start_request = create_start_workflow_request(workflow_client, wm, args)
+    start_request = create_start_workflow_request(workflow_client, wm, args, workflow_options)
     start_response = await workflow_client.service.start_workflow_execution(request=start_request)
     execution = WorkflowExecution(workflow_id=start_request.workflow_id, run_id=start_response.run_id)
     stub_instance._execution = execution  # type: ignore
@@ -268,8 +270,22 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     return from_payloads(response.query_result)[0]
 
 
+def create_memo(m: Dict[str, object]) -> Memo:
+    memo = Memo();
+    for k, v in m.items():
+        memo.fields[k] = to_payload(v)
+    return memo
+
+
+def create_search_attributes(s: Dict[str, object]) -> SearchAttributes:
+    search_attributes = SearchAttributes()
+    for k, v in s.items():
+        search_attributes.indexed_fields[k] = to_payload(v)
+    return search_attributes
+
+
 def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowMethod,
-                                  args: List) -> StartWorkflowExecutionRequest:
+                                  args: List, workflow_options: WorkflowOptions = None) -> StartWorkflowExecutionRequest:
     start_request = StartWorkflowExecutionRequest()
     start_request.namespace = workflow_client.namespace
     start_request.workflow_id = wm._workflow_id if wm._workflow_id else str(uuid4())
@@ -287,6 +303,27 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.workflow_id_reuse_policy = wm._workflow_id_reuse_policy
     start_request.request_id = str(uuid4())
     start_request.cron_schedule = wm._cron_schedule if wm._cron_schedule else None
+
+    if workflow_options:
+        if workflow_options.workflow_id:
+            start_request.workflow_id = workflow_options.workflow_id
+        if workflow_options.workflow_id_reuse_policy:
+            start_request.workflow_id_reuse_policy = workflow_options.workflow_id_reuse_policy
+        if workflow_options.workflow_run_timeout:
+            start_request.workflow_run_timeout = workflow_options.workflow_run_timeout
+        if workflow_options.workflow_execution_timeout:
+            start_request.workflow_execution_timeout = workflow_options.workflow_execution_timeout
+        if workflow_options.workflow_task_timeout:
+            start_request.workflow_task_timeout = workflow_options.workflow_task_timeout
+        if workflow_options.task_queue:
+            start_request.task_queue = workflow_options.task_queue
+        if workflow_options.cron_schedule:
+            start_request.cron_schedule = workflow_options.cron_schedule
+        if workflow_options.memo:
+            start_request.memo = create_memo(workflow_options.memo)
+        if workflow_options.search_attributes:
+            start_request.search_attributes = create_search_attributes(workflow_options.search_attributes)
+
     return start_request
 
 
@@ -422,8 +459,31 @@ class WorkflowClientOptions:
 
 
 @dataclass
-class WorkflowOptions:
+class RetryOptions:
+    # TODO: Support for retry_options
     pass
+
+
+@dataclass
+class ContextPropagator:
+    # TODO: Support for ContextPropagator
+    pass
+
+
+@dataclass
+class WorkflowOptions:
+    workflow_id: str = None
+    workflow_id_reuse_policy: WorkflowIdReusePolicy = None
+    workflow_run_timeout: timedelta = None
+    workflow_execution_timeout: timedelta = None
+    workflow_task_timeout: timedelta = None
+    task_queue: str = None
+    retry_options: RetryOptions = None
+    cron_schedule: str = None
+    memo: Dict[str, object] = None
+    search_attributes: Dict[str, object] = None
+    # TODO: What is this for?
+    # context_propagators = List[ContextPropagator] = None
 
 
 @dataclass
