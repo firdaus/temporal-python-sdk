@@ -304,6 +304,11 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.request_id = str(uuid4())
     start_request.cron_schedule = wm._cron_schedule if wm._cron_schedule else None
 
+    if wm._memo:
+        start_request.memo = create_memo(wm._memo)
+    if wm._search_attributes:
+        start_request.search_attributes = create_search_attributes(wm._search_attributes)
+
     if workflow_options:
         if workflow_options.workflow_id:
             start_request.workflow_id = workflow_options.workflow_id
@@ -381,6 +386,8 @@ class WorkflowMethod(object):
     _workflow_execution_timeout: timedelta = None
     _workflow_run_timeout: timedelta = None
     _workflow_task_timeout: timedelta = None
+    _memo: Dict[str, object] = None
+    _search_attributes: Dict[str, object] = None
 
 
 def workflow_method(func=None,
@@ -390,7 +397,9 @@ def workflow_method(func=None,
                     workflow_execution_timeout=timedelta(seconds=7200),  # (2 hours)
                     workflow_run_timeout=timedelta(seconds=7200),  # 2 hours
                     workflow_task_timeout=timedelta(seconds=60),
-                    task_queue=None):
+                    task_queue=None,
+                    memo: Dict[str, object] = None,
+                    search_attributes: Dict[str, object] = None):
     def wrapper(fn):
         if not hasattr(fn, "_workflow_method"):
             fn._workflow_method = WorkflowMethod()
@@ -401,6 +410,8 @@ def workflow_method(func=None,
         fn._workflow_method._workflow_execution_timeout = workflow_execution_timeout
         fn._workflow_method._workflow_run_timeout = workflow_run_timeout
         fn._workflow_method._workflow_task_timeout = workflow_task_timeout
+        fn._workflow_method._memo = memo
+        fn._workflow_method._search_attributes = search_attributes
         return fn
 
     if func and inspect.isfunction(func):
