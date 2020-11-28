@@ -373,7 +373,7 @@ class EventLoopWrapper:
 @dataclass
 class DecisionContext:
     decider: ReplayDecider
-    scheduled_activities: Dict[int, Future[Payloads]] = field(default_factory=dict)
+    scheduled_activities: Dict[int, Future[object]] = field(default_factory=dict)
     workflow_clock: ClockDecisionContext = None
     current_run_id: str = None
 
@@ -420,8 +420,7 @@ class DecisionContext:
                                                         failure_to_str(serialize_exception(ex1)))
             raise activity_failure
         assert future.done()
-        payloads: Payloads = future.result()
-        return from_payloads(payloads)[0]
+        return future.result()
 
     async def schedule_timer(self, seconds: int):
         future = self.decider.event_loop.create_future()
@@ -447,7 +446,8 @@ class DecisionContext:
             future = self.scheduled_activities.get(attr.scheduled_event_id)
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
-                future.set_result(attr.result)
+                result = from_payloads(attr.result)[0]
+                future.set_result(result)
             else:
                 raise NonDeterministicWorkflowException(
                     f"Trying to complete activity event {attr.scheduled_event_id} that is not in scheduled_activities")
