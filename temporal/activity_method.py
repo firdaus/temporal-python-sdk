@@ -1,11 +1,10 @@
-import copy
 import inspect
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, List
 
 from temporal.api.common.v1 import RetryPolicy, ActivityType, Payloads
-from temporal.conversions import to_payloads
+
 
 
 def get_activity_method_name(method: Callable):
@@ -49,17 +48,10 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
     def wrapper(fn: Callable):
         # noinspection PyProtectedMember
         async def stub_activity_fn(self, *args):
-            assert self._decision_context
-            assert stub_activity_fn._execute_parameters
-            parameters: ExecuteActivityParameters = copy.deepcopy(stub_activity_fn._execute_parameters)
-            if hasattr(self, "_activity_options") and self._activity_options:
-                self._activity_options.fill_execute_activity_parameters(parameters)
-            if self._retry_parameters:
-                parameters.retry_parameters = self._retry_parameters
-            parameters.input = to_payloads(args)
-            from temporal.decision_loop import DecisionContext
-            decision_context: DecisionContext = self._decision_context
-            return await decision_context.schedule_activity_task(parameters=parameters)
+            from .async_activity import Async
+            from .decision_loop import ActivityFuture
+            future: ActivityFuture = Async.function_with_self(stub_activity_fn, self, *args)
+            return await future.wait_for_result()
 
         if not task_queue:
             raise Exception("task_queue parameter is mandatory")

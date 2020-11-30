@@ -370,6 +370,48 @@ class EventLoopWrapper:
         return self.event_loop.create_future()
 
 
+class ActivityFuture:
+
+    def __init__(self, parameters: ExecuteActivityParameters,
+                 scheduled_event_id: int, future: Future[object]):
+        self.parameters = parameters
+        self.scheduled_event_id = scheduled_event_id
+        self.future = future
+
+    def __await__(self):
+        return self.future.__await__()
+
+    def done(self):
+        return self.future.done()
+
+    def exception(self):
+        return self.future.exception()
+
+    async def wait_for_result(self) -> object:
+        try:
+            await self.future
+        except CancelledError as e:
+            logger.debug("Coroutine cancelled (expected)")
+            raise e
+        except Exception as ex:
+            pass
+        return self.get_result()
+
+    def get_result(self):
+        ex1 = self.future.exception()
+        if ex1:
+            # We are relying on this behavior to serialize Exceptions:
+            # e = Exception("1", "2", "3")
+            # assert e.args == ('1', '2', '3')
+            activity_failure = ActivityFailureException(self.scheduled_event_id,
+                                                        self.parameters.activity_type.name,
+                                                        self.parameters.activity_id,
+                                                        failure_to_str(serialize_exception(ex1)))
+            raise activity_failure
+        assert self.future.done()
+        return self.future.result()
+
+
 @dataclass
 class DecisionContext:
     decider: ReplayDecider
@@ -381,7 +423,7 @@ class DecisionContext:
         if not self.workflow_clock:
             self.workflow_clock = ClockDecisionContext(self.decider, self)
 
-    async def schedule_activity_task(self, parameters: ExecuteActivityParameters):
+    def schedule_activity_task(self, parameters: ExecuteActivityParameters):
         attr = ScheduleActivityTaskCommandAttributes()
         attr.activity_type = parameters.activity_type
         attr.input = parameters.input
@@ -402,25 +444,8 @@ class DecisionContext:
         scheduled_event_id = self.decider.schedule_activity_task(schedule=attr)
         future = self.decider.event_loop.create_future()
         self.scheduled_activities[scheduled_event_id] = future
-        try:
-            await future
-        except CancelledError as e:
-            logger.debug("Coroutine cancelled (expected)")
-            raise e
-        except Exception as ex:
-            pass
-        ex1 = future.exception()
-        if ex1:
-            # We are relying on this behavior to serialize Exceptions:
-            # e = Exception("1", "2", "3")
-            # assert e.args == ('1', '2', '3')
-            activity_failure = ActivityFailureException(scheduled_event_id,
-                                                        parameters.activity_type.name,
-                                                        parameters.activity_id,
-                                                        failure_to_str(serialize_exception(ex1)))
-            raise activity_failure
-        assert future.done()
-        return future.result()
+        return ActivityFuture(parameters=parameters, scheduled_event_id=scheduled_event_id,
+                              future=future)
 
     async def schedule_timer(self, seconds: int):
         future = self.decider.event_loop.create_future()
