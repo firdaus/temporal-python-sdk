@@ -21,6 +21,7 @@ from enum import Enum
 from time import mktime
 from typing import List, Dict, Optional, Any, Callable
 
+from grpclib import GRPCError
 from more_itertools import peekable  # type: ignore
 
 from .activity_method import ExecuteActivityParameters
@@ -45,8 +46,6 @@ from .service_helpers import get_identity, create_workflow_service
 from .state_machines import ActivityDecisionStateMachine, DecisionStateMachine, CompleteWorkflowStateMachine, \
     TimerDecisionStateMachine, MarkerDecisionStateMachine
 from .worker import Worker, StopRequestedException
-from .workflow import QueryMethod
-WorkflowServiceStub
 
 logger = logging.getLogger(__name__)
 
@@ -912,19 +911,32 @@ class DecisionTaskLoop:
                         return
                     # TODO: Do we still need this
                     # self.service.set_next_timeout_cb(self.worker.raise_if_stop_requested)
-                    decision_task: PollWorkflowTaskQueueResponse = await self.poll()
+                    try:
+                        decision_task: PollWorkflowTaskQueueResponse = await self.poll()
+                    except GRPCError as ex:
+                        logger.error("poll_workflow_task_queue failed: %s", ex, exc_info=True)
+                        continue
                     if not decision_task:
                         continue
                     if decision_task.query:
                         try:
                             result: Payloads = await self.process_query(decision_task)
-                            await self.respond_query(decision_task.task_token, result, None)
+                            try:
+                                await self.respond_query(decision_task.task_token, result, None)
+                            except GRPCError as ex:
+                                logger.error("respond_query failed with: %s", ex, exc_info=True)
                         except Exception as ex:
-                            logger.error("Error")
-                            await self.respond_query(decision_task.task_token, None, str(ex))
+                            logger.error("Error processing query: %s", ex, exc_info=True)
+                            try:
+                                await self.respond_query(decision_task.task_token, None, str(ex))
+                            except GRPCError as ex:
+                                logger.error("respond_query (exception) failed with: %s", ex, exc_info=True)
                     else:
                         decisions = await self.process_task(decision_task)
-                        await self.respond_decisions(decision_task.task_token, decisions)
+                        try:
+                            await self.respond_decisions(decision_task.task_token, decisions)
+                        except GRPCError as ex:
+                            logger.error("respond_decisions failed with: %s", ex, exc_info=True)
                 except StopRequestedException:
                     return
         finally:
@@ -952,12 +964,8 @@ class DecisionTaskLoop:
             traceback.print_exc()
             logger.error("PollWorkflowTaskQueue error: %s", ex)
             return None
-        # TODO: Handle Exception returned by poll_workflow_task_queue
-        #if err:
-        #    logger.error("PollWorkflowTaskQueue failed: %s", err)
-        #    return None
         if not task.task_token:
-            logger.debug("PollForActivityTask has no task token (expected): %s", task)
+            logger.debug("PollForWorkflowTaskQueue has no task token (expected): %s", task)
             return None
         return task
 
@@ -1007,11 +1015,6 @@ class DecisionTaskLoop:
         # noinspection PyUnusedLocal
         response: RespondWorkflowTaskCompletedResponse
         response = await service.respond_workflow_task_completed(request=request)
-        # TODO: error handling
-        # if err:
-        #    logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
-        # else:
-        #    logger.debug("RespondDecisionTaskCompleted: %s", response)
 
 
 from .clock_decision_context import ClockDecisionContext, TimerCancellationHandler, LOCAL_ACTIVITY_MARKER_NAME

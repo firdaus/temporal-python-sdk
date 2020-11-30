@@ -144,7 +144,6 @@ async def complete_exceptionally(service, task_token, ex: Exception):
     respond.task_token = task_token
     respond.identity = get_identity()
     respond.failure = serialize_exception(ex)
-    # TODO: error handling
     await service.respond_activity_task_failed(request=respond)
 
 
@@ -153,5 +152,4 @@ async def complete(service, task_token, return_value: object):
     respond.task_token = task_token
     respond.result = to_payloads([return_value])
     respond.identity = get_identity()
-    # TODO: error handling
     await service.respond_activity_task_completed(request=respond)
