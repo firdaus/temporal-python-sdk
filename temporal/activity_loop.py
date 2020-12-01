@@ -10,6 +10,7 @@ from grpclib import GRPCError
 from temporal.activity import ActivityContext, ActivityTask, complete_exceptionally, complete
 from temporal.api.taskqueue.v1 import TaskQueue, TaskQueueMetadata
 from temporal.conversions import from_payloads
+from temporal.retry import retry
 from temporal.service_helpers import create_workflow_service, get_identity
 from temporal.worker import Worker, StopRequestedException
 from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService, PollActivityTaskQueueRequest, \
@@ -22,6 +23,7 @@ def activity_task_loop(worker: Worker):
     asyncio.run(activity_task_loop_func(worker))
 
 
+@retry(logger=logger)
 async def activity_task_loop_func(worker: Worker):
     service: WorkflowService = create_workflow_service(worker.host, worker.port, timeout=worker.get_timeout())
     worker.manage_service(service)
@@ -47,9 +49,6 @@ async def activity_task_loop_func(worker: Worker):
                 return
             except GRPCError as ex:
                 logger.error("Error invoking poll_activity_task_queue: %s", ex, exc_info=True)
-                continue
-            except Exception as ex:
-                logger.error("PollActivityTaskQueue error: %s", ex)
                 continue
             task_token = task.task_token
             if not task_token:

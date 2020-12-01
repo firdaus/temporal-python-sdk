@@ -42,6 +42,7 @@ from .decisions import DecisionId, DecisionTarget
 from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
 from .exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
     ActivityTaskTimeoutException, SignalNotFound, ActivityFailureException, QueryNotFound, QueryDidNotComplete
+from .retry import retry
 from .service_helpers import get_identity, create_workflow_service
 from .state_machines import ActivityDecisionStateMachine, DecisionStateMachine, CompleteWorkflowStateMachine, \
     TimerDecisionStateMachine, MarkerDecisionStateMachine
@@ -898,6 +899,7 @@ class DecisionTaskLoop:
     def start(self):
         asyncio.run(self.run())
 
+    @retry(logger=logger)
     async def run(self):
         try:
             logger.info(f"Decision task worker started: {get_identity()}")
@@ -960,7 +962,7 @@ class DecisionTaskLoop:
             task = await self.service.poll_workflow_task_queue(request=poll_decision_request)
             polling_end = datetime.datetime.now()
             logger.debug("PollWorkflowTaskQueue: %dms", (polling_end - polling_start).total_seconds() * 1000)
-        except Exception as ex:  # TODO: Replace with equivalent of except TChannelException as ex:
+        except GRPCError as ex:
             traceback.print_exc()
             logger.error("PollWorkflowTaskQueue error: %s", ex)
             return None
