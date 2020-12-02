@@ -94,3 +94,21 @@ class ActivityOptions:
             execute_parameters.heartbeat_timeout = self.heartbeat_timeout
         if self.task_queue is not None:
             execute_parameters.task_queue = self.task_queue
+
+
+@dataclass
+class UntypedActivityStub:
+    _decision_context: object = None
+    _retry_parameters: RetryParameters = None
+    _activity_options: ActivityOptions = None
+
+    async def execute(self, activity_name: str, *args):
+        f = await self.execute_async(activity_name, *args)
+        return await f.wait_for_result()
+
+    async def execute_async(self, activity_name: str, *args):
+        from .async_activity import Async
+        execute_parameters = ExecuteActivityParameters()
+        execute_parameters.activity_type = ActivityType()
+        execute_parameters.activity_type.name = activity_name
+        return Async.call(self, execute_parameters, args)

@@ -42,6 +42,19 @@ class Workflow:
         return cls
 
     @staticmethod
+    def new_untyped_activity_stub(retry_parameters: RetryParameters = None,
+                                  activity_options: ActivityOptions = None):
+        from .decision_loop import ITask
+        from .activity_method import UntypedActivityStub
+        task: ITask = ITask.current()
+        assert task
+        cls = UntypedActivityStub()
+        cls._decision_context = task.decider.decision_context
+        cls._retry_parameters = retry_parameters  # type: ignore
+        cls._activity_options = activity_options
+        return cls
+
+    @staticmethod
     async def await_till(c: Callable, timeout_seconds: int = 0) -> bool:
         from .decision_loop import ITask
         task: ITask = ITask.current()

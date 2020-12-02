@@ -17,6 +17,10 @@ class Async:
         assert self._decision_context
         assert method._execute_parameters
         parameters: ExecuteActivityParameters = copy.deepcopy(method._execute_parameters)
+        return Async.call(self, parameters, args)
+
+    @staticmethod
+    def call(self, parameters, args: List[object]):
         if hasattr(self, "_activity_options") and self._activity_options:
             self._activity_options.fill_execute_activity_parameters(parameters)
         if self._retry_parameters:
