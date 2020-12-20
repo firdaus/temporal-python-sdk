@@ -42,13 +42,15 @@ This should be considered EXPERIMENTAL at the moment. At the moment, all I can s
 - [x]  Workflow client - invoking queries
 
 1.1
-- [ ] ActivityStub and Workflow.newUntypedActivityStub
-- [ ] Classes as arguments and return values to/from activity and workflow methods
+- [x] ActivityStub and Workflow.newUntypedActivityStub
+- [ ] Classes as arguments and return values to/from activity and workflow methods (DataConverter)
 - [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
 - [ ] Custom workflow ids through start() and new_workflow_stub()
 - [ ] ContinueAsNew
+- [ ] Parallel activity execution (STATUS: there's a working but not finalized API).
 - [ ] Compatibility with Java client
 - [ ] Compatibility with Golang client
+- [ ] Remove threading, use coroutines for everything all concurrency 
 
 2.0
 - [ ] Sticky workflows
@@ -56,7 +58,6 @@ This should be considered EXPERIMENTAL at the moment. At the moment, all I can s
 Post 2.0:
 - [ ] sideEffect/mutableSideEffect
 - [ ] Local activity
-- [ ] Parallel activity execution
 - [ ] Timers
 - [ ] Cancellation Scopes
 - [ ] Child Workflows

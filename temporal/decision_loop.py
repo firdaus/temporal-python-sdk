@@ -21,6 +21,7 @@ from enum import Enum
 from time import mktime
 from typing import List, Dict, Optional, Any, Callable
 
+from grpclib import GRPCError
 from more_itertools import peekable  # type: ignore
 
 from .activity_method import ExecuteActivityParameters
@@ -41,12 +42,11 @@ from .decisions import DecisionId, DecisionTarget
 from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
 from .exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
     ActivityTaskTimeoutException, SignalNotFound, ActivityFailureException, QueryNotFound, QueryDidNotComplete
+from .retry import retry
 from .service_helpers import get_identity, create_workflow_service
 from .state_machines import ActivityDecisionStateMachine, DecisionStateMachine, CompleteWorkflowStateMachine, \
     TimerDecisionStateMachine, MarkerDecisionStateMachine
 from .worker import Worker, StopRequestedException
-from .workflow import QueryMethod
-WorkflowServiceStub
 
 logger = logging.getLogger(__name__)
 
@@ -370,10 +370,52 @@ class EventLoopWrapper:
         return self.event_loop.create_future()
 
 
+class ActivityFuture:
+
+    def __init__(self, parameters: ExecuteActivityParameters,
+                 scheduled_event_id: int, future: Future[object]):
+        self.parameters = parameters
+        self.scheduled_event_id = scheduled_event_id
+        self.future = future
+
+    def __await__(self):
+        return self.future.__await__()
+
+    def done(self):
+        return self.future.done()
+
+    def exception(self):
+        return self.future.exception()
+
+    async def wait_for_result(self) -> object:
+        try:
+            await self.future
+        except CancelledError as e:
+            logger.debug("Coroutine cancelled (expected)")
+            raise e
+        except Exception as ex:
+            pass
+        return self.get_result()
+
+    def get_result(self):
+        ex1 = self.future.exception()
+        if ex1:
+            # We are relying on this behavior to serialize Exceptions:
+            # e = Exception("1", "2", "3")
+            # assert e.args == ('1', '2', '3')
+            activity_failure = ActivityFailureException(self.scheduled_event_id,
+                                                        self.parameters.activity_type.name,
+                                                        self.parameters.activity_id,
+                                                        failure_to_str(serialize_exception(ex1)))
+            raise activity_failure
+        assert self.future.done()
+        return self.future.result()
+
+
 @dataclass
 class DecisionContext:
     decider: ReplayDecider
-    scheduled_activities: Dict[int, Future[Payloads]] = field(default_factory=dict)
+    scheduled_activities: Dict[int, Future[object]] = field(default_factory=dict)
     workflow_clock: ClockDecisionContext = None
     current_run_id: str = None
 
@@ -381,7 +423,7 @@ class DecisionContext:
         if not self.workflow_clock:
             self.workflow_clock = ClockDecisionContext(self.decider, self)
 
-    async def schedule_activity_task(self, parameters: ExecuteActivityParameters):
+    def schedule_activity_task(self, parameters: ExecuteActivityParameters):
         attr = ScheduleActivityTaskCommandAttributes()
         attr.activity_type = parameters.activity_type
         attr.input = parameters.input
@@ -402,26 +444,8 @@ class DecisionContext:
         scheduled_event_id = self.decider.schedule_activity_task(schedule=attr)
         future = self.decider.event_loop.create_future()
         self.scheduled_activities[scheduled_event_id] = future
-        try:
-            await future
-        except CancelledError as e:
-            logger.debug("Coroutine cancelled (expected)")
-            raise e
-        except Exception as ex:
-            pass
-        ex1 = future.exception()
-        if ex1:
-            # We are relying on this behavior to serialize Exceptions:
-            # e = Exception("1", "2", "3")
-            # assert e.args == ('1', '2', '3')
-            activity_failure = ActivityFailureException(scheduled_event_id,
-                                                        parameters.activity_type.name,
-                                                        parameters.activity_id,
-                                                        failure_to_str(serialize_exception(ex1)))
-            raise activity_failure
-        assert future.done()
-        payloads: Payloads = future.result()
-        return from_payloads(payloads)[0]
+        return ActivityFuture(parameters=parameters, scheduled_event_id=scheduled_event_id,
+                              future=future)
 
     async def schedule_timer(self, seconds: int):
         future = self.decider.event_loop.create_future()
@@ -447,7 +471,8 @@ class DecisionContext:
             future = self.scheduled_activities.get(attr.scheduled_event_id)
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
-                future.set_result(attr.result)
+                result = from_payloads(attr.result)[0]
+                future.set_result(result)
             else:
                 raise NonDeterministicWorkflowException(
                     f"Trying to complete activity event {attr.scheduled_event_id} that is not in scheduled_activities")
@@ -874,6 +899,7 @@ class DecisionTaskLoop:
     def start(self):
         asyncio.run(self.run())
 
+    @retry(logger=logger)
     async def run(self):
         try:
             logger.info(f"Decision task worker started: {get_identity()}")
@@ -887,19 +913,32 @@ class DecisionTaskLoop:
                         return
                     # TODO: Do we still need this
                     # self.service.set_next_timeout_cb(self.worker.raise_if_stop_requested)
-                    decision_task: PollWorkflowTaskQueueResponse = await self.poll()
+                    try:
+                        decision_task: PollWorkflowTaskQueueResponse = await self.poll()
+                    except GRPCError as ex:
+                        logger.error("poll_workflow_task_queue failed: %s", ex, exc_info=True)
+                        continue
                     if not decision_task:
                         continue
                     if decision_task.query:
                         try:
                             result: Payloads = await self.process_query(decision_task)
-                            await self.respond_query(decision_task.task_token, result, None)
+                            try:
+                                await self.respond_query(decision_task.task_token, result, None)
+                            except GRPCError as ex:
+                                logger.error("respond_query failed with: %s", ex, exc_info=True)
                         except Exception as ex:
-                            logger.error("Error")
-                            await self.respond_query(decision_task.task_token, None, str(ex))
+                            logger.error("Error processing query: %s", ex, exc_info=True)
+                            try:
+                                await self.respond_query(decision_task.task_token, None, str(ex))
+                            except GRPCError as ex:
+                                logger.error("respond_query (exception) failed with: %s", ex, exc_info=True)
                     else:
                         decisions = await self.process_task(decision_task)
-                        await self.respond_decisions(decision_task.task_token, decisions)
+                        try:
+                            await self.respond_decisions(decision_task.task_token, decisions)
+                        except GRPCError as ex:
+                            logger.error("respond_decisions failed with: %s", ex, exc_info=True)
                 except StopRequestedException:
                     return
         finally:
@@ -923,16 +962,12 @@ class DecisionTaskLoop:
             task = await self.service.poll_workflow_task_queue(request=poll_decision_request)
             polling_end = datetime.datetime.now()
             logger.debug("PollWorkflowTaskQueue: %dms", (polling_end - polling_start).total_seconds() * 1000)
-        except Exception as ex:  # TODO: Replace with equivalent of except TChannelException as ex:
+        except GRPCError as ex:
             traceback.print_exc()
             logger.error("PollWorkflowTaskQueue error: %s", ex)
             return None
-        # TODO: Handle Exception returned by poll_workflow_task_queue
-        #if err:
-        #    logger.error("PollWorkflowTaskQueue failed: %s", err)
-        #    return None
         if not task.task_token:
-            logger.debug("PollForActivityTask has no task token (expected): %s", task)
+            logger.debug("PollForWorkflowTaskQueue has no task token (expected): %s", task)
             return None
         return task
 
@@ -982,11 +1017,6 @@ class DecisionTaskLoop:
         # noinspection PyUnusedLocal
         response: RespondWorkflowTaskCompletedResponse
         response = await service.respond_workflow_task_completed(request=request)
-        # TODO: error handling
-        # if err:
-        #    logger.error("Error invoking RespondDecisionTaskCompleted: %s", err)
-        # else:
-        #    logger.debug("RespondDecisionTaskCompleted: %s", response)
 
 
 from .clock_decision_context import ClockDecisionContext, TimerCancellationHandler, LOCAL_ACTIVITY_MARKER_NAME

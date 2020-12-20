@@ -5,9 +5,12 @@ import json
 import inspect
 from typing import List
 
+from grpclib import GRPCError
+
 from temporal.activity import ActivityContext, ActivityTask, complete_exceptionally, complete
 from temporal.api.taskqueue.v1 import TaskQueue, TaskQueueMetadata
 from temporal.conversions import from_payloads
+from temporal.retry import retry
 from temporal.service_helpers import create_workflow_service, get_identity
 from temporal.worker import Worker, StopRequestedException
 from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService, PollActivityTaskQueueRequest, \
@@ -20,6 +23,7 @@ def activity_task_loop(worker: Worker):
     asyncio.run(activity_task_loop_func(worker))
 
 
+@retry(logger=logger)
 async def activity_task_loop_func(worker: Worker):
     service: WorkflowService = create_workflow_service(worker.host, worker.port, timeout=worker.get_timeout())
     worker.manage_service(service)
@@ -43,14 +47,9 @@ async def activity_task_loop_func(worker: Worker):
                 logger.debug("PollActivityTaskQueue: %dms", (polling_end - polling_start).total_seconds() * 1000)
             except StopRequestedException:
                 return
-            except Exception as ex:
-                logger.error("PollActivityTaskQueue error: %s", ex)
+            except GRPCError as ex:
+                logger.error("Error invoking poll_activity_task_queue: %s", ex, exc_info=True)
                 continue
-            # -----
-            # if err:
-            #     logger.error("PollActivityTaskQueue failed: %s", err)
-            #     continue
-            # -----
             task_token = task.task_token
             if not task_token:
                 logger.debug("PollActivityTaskQueue has no task_token (expected): %s", task)
@@ -78,20 +77,20 @@ async def activity_task_loop_func(worker: Worker):
                 if activity_context.do_not_complete:
                     logger.info(f"Not completing activity {task.activity_type.name}({str(args)[1:-1]})")
                     continue
-                await complete(service, task_token, return_value)
-                # -----
-                # if error:
-                #     logger.error("Error invoking RespondActivityTaskCompleted: %s", error)
-                # -----
+
                 logger.info(
                     f"Activity {task.activity_type.name}({str(args)[1:-1]}) returned {json.dumps(return_value)}")
+
+                try:
+                    await complete(service, task_token, return_value)
+                except GRPCError as ex:
+                    logger.error("Error invoking respond_activity_task_completed: %s", ex, exc_info=True)
             except Exception as ex:
                 logger.error(f"Activity {task.activity_type.name} failed: {type(ex).__name__}({ex})", exc_info=True)
-                await complete_exceptionally(service, task_token, ex)
-                # -----
-                # if error:
-                #     logger.error("Error invoking RespondActivityTaskFailed: %s", error)
-                # -----
+                try:
+                    await complete_exceptionally(service, task_token, ex)
+                except GRPCError as ex2:
+                    logger.error("Error invoking respond_activity_task_failed: %s", ex2, exc_info=True)
             finally:
                 ActivityContext.set(None)
                 process_end = datetime.datetime.now()
@@ -103,3 +102,4 @@ async def activity_task_loop_func(worker: Worker):
         except Exception:
             logger.warning("service.close() failed", exc_info=True)
         worker.notify_thread_stopped()
+        logger.info("Activity loop ended")
