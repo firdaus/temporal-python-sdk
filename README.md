@@ -110,22 +110,22 @@ if __name__ == '__main__':
 
 1.1
 - [x] ActivityStub and Workflow.newUntypedActivityStub
+- [x] Remove threading, use coroutines for everything all concurrency
 - [ ] Classes as arguments and return values to/from activity and workflow methods (DataConverter)
 - [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
-- [ ] Custom workflow ids through start() and new_workflow_stub()
-- [ ] ContinueAsNew
 - [ ] Parallel activity execution (STATUS: there's a working but not finalized API).
-- [ ] Compatibility with Java client
-- [ ] Compatibility with Golang client
-- [ ] Remove threading, use coroutines for everything all concurrency 
+- [ ] Custom workflow ids through start() and new_workflow_stub()
+- [ ] ContinueAsNew ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Compatibility with Java client ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 2.0
-- [ ] Sticky workflows
+- [ ] Sticky workflows ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 Post 2.0:
-- [ ] sideEffect/mutableSideEffect
-- [ ] Local activity
-- [ ] Timers
-- [ ] Cancellation Scopes
-- [ ] Child Workflows
-- [ ] Explicit activity ids for activity invocations
+- [ ] sideEffect/mutableSideEffect ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Local activity ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Timers ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Cancellation Scopes ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Child Workflows ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Explicit activity ids for activity invocations ![](https://img.shields.io/badge/PRs-welcome-informational)
