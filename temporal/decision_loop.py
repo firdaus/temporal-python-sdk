@@ -897,7 +897,7 @@ class DecisionTaskLoop:
         pass
 
     def start(self):
-        asyncio.run(self.run())
+        asyncio.create_task(self.run())
 
     @retry(logger=logger)
     async def run(self):

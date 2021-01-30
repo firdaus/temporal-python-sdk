@@ -1,9 +1,8 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Tuple, List
 import inspect
-import threading
 import logging
-import time
 
 from temporal.constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
 from temporal.conversions import camel_to_snake, snake_to_camel, snake_to_title
@@ -118,27 +117,25 @@ class Worker:
                     impl_cls._query_methods[f'{cls_name}::{snake_to_camel(method_name)}'] = impl_fn  # type: ignore
 
     def start(self):
-        from temporal.activity_loop import activity_task_loop
+        from .activity_loop import activity_task_loop_func
         from .decision_loop import decision_task_loop_func
         self.threads_stopped = 0
         self.threads_started = 0
         self.stop_requested = False
         if self.activities:
-            thread = threading.Thread(target=activity_task_loop, args=(self,))
-            thread.start()
+            asyncio.create_task(activity_task_loop_func(self))
             self.threads_started += 1
         if self.workflow_methods:
-            thread = threading.Thread(target=decision_task_loop_func, args=(self,))
-            thread.start()
+            decision_task_loop_func(self)
             self.threads_started += 1
 
-    def stop(self, background=False):
+    async def stop(self, background=False):
         self.stop_requested = True
         if background:
             return
         else:
             while self.threads_stopped != self.threads_started:
-                time.sleep(5)
+                await asyncio.sleep(5)
 
     def is_stopped(self):
         return self.threads_stopped == self.threads_started

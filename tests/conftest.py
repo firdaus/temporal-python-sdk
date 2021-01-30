@@ -5,7 +5,7 @@ from . import cleanup_worker
 
 
 @pytest.fixture
-def worker(request):
+async def worker(request):
     marker = request.node.get_closest_marker("worker_config")
     namespace = marker.args[0]
     task_queue = marker.args[1]
@@ -22,4 +22,4 @@ def worker(request):
 
     yield worker_instance
 
-    cleanup_worker(worker_instance)
+    await cleanup_worker(worker_instance)

@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import logging
 import json
@@ -17,10 +16,6 @@ from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowServi
     PollActivityTaskQueueResponse
 
 logger = logging.getLogger(__name__)
-
-
-def activity_task_loop(worker: Worker):
-    asyncio.run(activity_task_loop_func(worker))
 
 
 @retry(logger=logger)

@@ -89,4 +89,4 @@ async def test_workflow_workflow_get_version():
 
     # TODO: Assert that there are no markers recorded
 
-    cleanup_worker(worker)
+    await cleanup_worker(worker)
