@@ -905,8 +905,7 @@ class DecisionTaskLoop:
             logger.info(f"Decision task worker started: {get_identity()}")
             # event_loop = asyncio.new_event_loop()
             # asyncio.set_event_loop(event_loop)
-            self.service = create_workflow_service(self.worker.host, self.worker.port, timeout=self.worker.get_timeout())
-            self.worker.manage_service(self.service)
+            self.service = self.worker.client.service
             while True:
                 try:
                     if self.worker.is_stop_requested():
@@ -942,11 +941,6 @@ class DecisionTaskLoop:
                 except StopRequestedException:
                     return
         finally:
-        # noinspection PyPep8,PyBroadException
-            try:
-                self.service.channel.close()
-            except:
-                logger.warning("service.close() failed", exc_info=1)
             self.worker.notify_thread_stopped()
 
     async def poll(self) -> Optional[PollWorkflowTaskQueueResponse]:

@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 
 @retry(logger=logger)
 async def activity_task_loop_func(worker: Worker):
-    service: WorkflowService = create_workflow_service(worker.host, worker.port, timeout=worker.get_timeout())
-    worker.manage_service(service)
+    service: WorkflowService = worker.client.service
     logger.info(f"Activity task worker started: {get_identity()}")
     try:
         while True:
@@ -91,10 +90,5 @@ async def activity_task_loop_func(worker: Worker):
                 process_end = datetime.datetime.now()
                 logger.info("Process ActivityTask: %dms", (process_end - process_start).total_seconds() * 1000)
     finally:
-        # noinspection PyBroadException
-        try:
-            service.channel.close()
-        except Exception:
-            logger.warning("service.close() failed", exc_info=True)
         worker.notify_thread_stopped()
         logger.info("Activity loop ended")

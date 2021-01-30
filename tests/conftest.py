@@ -1,6 +1,9 @@
+import asyncio
+
 import pytest
 
 from temporal.workerfactory import WorkerFactory
+from temporal.workflow import WorkflowClient
 from . import cleanup_worker
 
 
@@ -12,7 +15,8 @@ async def worker(request):
     activities = marker.kwargs.get("activities", [])
     workflows = marker.kwargs.get("workflows", [])
 
-    factory = WorkerFactory("localhost", 7233, namespace)
+    client: WorkflowClient = WorkflowClient.new_client("localhost", 7233)
+    factory = WorkerFactory(client, namespace)
     worker_instance = factory.new_worker(task_queue)
     for a_instance, a_cls in activities:
         worker_instance.register_activities_implementation(a_instance, a_cls)
@@ -22,4 +26,4 @@ async def worker(request):
 
     yield worker_instance
 
-    await cleanup_worker(worker_instance)
+    asyncio.create_task(cleanup_worker(client, worker_instance))

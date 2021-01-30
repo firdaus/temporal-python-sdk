@@ -7,9 +7,7 @@ import logging
 from temporal.constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
 from temporal.conversions import camel_to_snake, snake_to_camel, snake_to_title
 
-from .workflow import WorkflowMethod, SignalMethod, QueryMethod
-
-from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService
+from .workflow import WorkflowMethod, SignalMethod, QueryMethod, WorkflowClient
 
 logger = logging.getLogger(__name__)
 
@@ -59,18 +57,15 @@ def _get_qm(cls: type, method_name: str) -> QueryMethod:
 
 @dataclass
 class Worker:
-    host: str = None
-    port: int = None
+    client: WorkflowClient
     namespace: str = None
     task_queue: str = None
     options: WorkerOptions = None
     activities: Dict[str, Callable] = field(default_factory=dict)
     workflow_methods: Dict[str, Tuple[type, Callable]] = field(default_factory=dict)
-    service: WorkflowService = None
     threads_started: int = 0
     threads_stopped: int = 0
     stop_requested: bool = False
-    service_instances: List[WorkflowService] = field(default_factory=list)
     timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS
 
     def register_activities_implementation(self, activities_instance: object, activities_cls_name: str = None):
@@ -148,9 +143,6 @@ class Worker:
 
     def get_workflow_method(self, workflow_type_name: str) -> Tuple[type, Callable]:
         return self.workflow_methods[workflow_type_name]
-
-    def manage_service(self, service: WorkflowService):
-        self.service_instances.append(service)
 
     def set_timeout(self, timeout):
         self.timeout = timeout

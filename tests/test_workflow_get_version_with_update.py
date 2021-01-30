@@ -61,12 +61,12 @@ class TestWorkflowGetVersionImplV2(TestWorkflowGetVersion):
 @pytest.mark.asyncio
 async def test_workflow_workflow_get_version():
     global v1_hits, v2_hits
-    factory = WorkerFactory("localhost", 7233, NAMESPACE)
+    client: WorkflowClient = WorkflowClient.new_client("localhost", 7233, namespace=NAMESPACE)
+    factory = WorkerFactory(client, NAMESPACE)
     worker = factory.new_worker(TASK_QUEUE)
     worker.register_workflow_implementation_type(TestWorkflowGetVersionImplV1)
     factory.start()
 
-    client = WorkflowClient.new_client(namespace=NAMESPACE)
     workflow: TestWorkflowGetVersion = client.new_workflow_stub(TestWorkflowGetVersion)
 
     await client.start(workflow.get_greetings)
@@ -89,4 +89,4 @@ async def test_workflow_workflow_get_version():
 
     # TODO: Assert that there are no markers recorded
 
-    await cleanup_worker(worker)
+    await cleanup_worker(client, worker)
