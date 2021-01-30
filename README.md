@@ -4,6 +4,73 @@
 
 This should be considered EXPERIMENTAL at the moment. At the moment, all I can say is that the [test cases](https://gist.github.com/firdaus/4ec442f2c626122ad0c8d379a7ffd8bc) currently pass. I have not tested this for any real world use cases yet. 
 
+## Hello World
+
+```python
+import asyncio
+import logging
+from datetime import timedelta
+
+from temporal.activity_method import activity_method
+from temporal.workerfactory import WorkerFactory
+from temporal.workflow import workflow_method, Workflow, WorkflowClient
+
+logging.basicConfig(level=logging.INFO)
+
+TASK_QUEUE = "HelloActivity-python-tq"
+DOMAIN = "default"
+
+# Activities Interface
+class GreetingActivities:
+    @activity_method(task_queue=TASK_QUEUE, schedule_to_close_timeout=timedelta(seconds=1000))
+    async def compose_greeting(self, greeting: str, name: str) -> str:
+        raise NotImplementedError
+
+
+# Activities Implementation
+class GreetingActivitiesImpl:
+    async def compose_greeting(self, greeting: str, name: str):
+        return greeting + " " + name + "!"
+
+
+# Workflow Interface
+class GreetingWorkflow:
+    @workflow_method(task_queue=TASK_QUEUE)
+    async def get_greeting(self, name: str) -> str:
+        raise NotImplementedError
+
+
+# Workflow Implementation
+class GreetingWorkflowImpl(GreetingWorkflow):
+
+    def __init__(self):
+        self.greeting_activities: GreetingActivities = Workflow.new_activity_stub(GreetingActivities)
+        pass
+
+    async def get_greeting(self, name):
+        return await self.greeting_activities.compose_greeting("Hello", name)
+
+
+async def client_main():
+    client = WorkflowClient.new_client(namespace=DOMAIN)
+
+    factory = WorkerFactory(client, DOMAIN)
+    worker = factory.new_worker(TASK_QUEUE)
+    worker.register_activities_implementation(GreetingActivitiesImpl(), "GreetingActivities")
+    worker.register_workflow_implementation_type(GreetingWorkflowImpl)
+    factory.start()
+
+    greeting_workflow: GreetingWorkflow = client.new_workflow_stub(GreetingWorkflow)
+    result = await greeting_workflow.get_greeting("Python")
+    print(result)
+    print("Stopping workers.....")
+    await worker.stop()
+    print("Workers stopped......")
+
+if __name__ == '__main__':
+    asyncio.run(client_main())
+```
+
 ## Roadmap 
 
 1.0
