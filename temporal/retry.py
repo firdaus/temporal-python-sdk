@@ -28,7 +28,7 @@ def retry(logger=None):
                     last_failed_time = now
                     logger.error("%s failed: %s, retrying in %d seconds", fp.__name__, ex,
                                  delay_seconds, exc_info=True)
-                    time.sleep(delay_seconds)
+                    await asyncio.sleep(delay_seconds)
 
         return retry_loop
 
