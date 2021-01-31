@@ -120,6 +120,7 @@ if __name__ == '__main__':
 - [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 2.0
+- [ ] Upgrade python-betterproto ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Sticky workflows ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 Post 2.0:
