@@ -8,7 +8,6 @@ import pytz
 from .api.command.v1 import StartTimerCommandAttributes
 from .api.common.v1 import Payloads, Payload
 from .api.history.v1 import TimerFiredEventAttributes, HistoryEvent, TimerCanceledEventAttributes
-from .conversions import to_payloads, from_payloads
 from .decision_loop import ReplayDecider, DecisionContext
 from .exceptions import CancellationException
 from .marker import MarkerHandler, MarkerInterface, MarkerResult
@@ -88,16 +87,16 @@ class ClockDecisionContext:
 
     def get_version(self, change_id: str, min_supported: int, max_supported: int) -> int:
         def func():
-            d: Dict[str, Payloads] = {"VERSION": to_payloads([max_supported])}
+            d: Dict[str, Payloads] = {"VERSION": self.decider.worker.client.data_converter.to_payloads([max_supported])}
             return d
 
         result: Dict[str, Payloads] = self.version_handler.handle(change_id, func)
         if result is None:
-            result = {"VERSION": to_payloads([DEFAULT_VERSION])}
+            result = {"VERSION": self.decider.worker.client.data_converter.to_payloads([DEFAULT_VERSION])}
             self.version_handler.set_data(change_id, result)
             self.version_handler.mark_replayed(change_id)  # so that we don't ever emit a MarkerRecorded for this
 
-        version: int = from_payloads(result["VERSION"])[0]  # type: ignore
+        version: int = self.decider.worker.client.data_converter.from_payloads(result["VERSION"])[0]  # type: ignore
         self.validate_version(change_id, version, min_supported, max_supported)
         return version
 

@@ -37,7 +37,6 @@ from .api.workflowservice.v1 import PollWorkflowTaskQueueRequest, PollWorkflowTa
     RespondWorkflowTaskCompletedRequest, RespondWorkflowTaskCompletedResponse, RespondQueryTaskCompletedRequest, \
     QueryWorkflowResponse, QueryWorkflowRequest, WorkflowServiceStub, RespondQueryTaskCompletedResponse
 
-from .conversions import from_payloads, to_payloads
 from .decisions import DecisionId, DecisionTarget
 from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
 from .exceptions import WorkflowTypeNotFound, NonDeterministicWorkflowException, ActivityTaskFailedException, \
@@ -471,7 +470,7 @@ class DecisionContext:
             future = self.scheduled_activities.get(attr.scheduled_event_id)
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
-                result = from_payloads(attr.result)[0]
+                result = self.decider.worker.client.data_converter.from_payloads(attr.result)[0]
                 future.set_result(result)
             else:
                 raise NonDeterministicWorkflowException(
@@ -631,7 +630,7 @@ class ReplayDecider:
         if start_event_attributes.input is None or start_event_attributes.input == b'':
             workflow_input = []
         else:
-            workflow_input = from_payloads(start_event_attributes.input)
+            workflow_input = self.worker.client.data_converter.from_payloads(start_event_attributes.input)
         self.workflow_task = WorkflowMethodTask(task_id=self.execution_id, workflow_input=workflow_input,
                                                 worker=self.worker, workflow_type=self.workflow_type, decider=self)
         await self.event_loop.run_event_loop_once()
@@ -654,7 +653,7 @@ class ReplayDecider:
         # PORT: addAllMissingVersionMarker(false, Optional.empty());
         decision: Command = Command()
         attr: CompleteWorkflowExecutionCommandAttributes = CompleteWorkflowExecutionCommandAttributes()
-        attr.result = to_payloads([ret_value])
+        attr.result = self.worker.client.data_converter.to_payloads([ret_value])
         decision.complete_workflow_execution_command_attributes = attr
         decision.command_type = CommandType.COMMAND_TYPE_COMPLETE_WORKFLOW_EXECUTION
         decision_id = DecisionId(DecisionTarget.SELF, 0)
@@ -730,7 +729,7 @@ class ReplayDecider:
         if not signal_input_payloads:
             signal_input = []
         else:
-            signal_input = from_payloads(signal_input_payloads)
+            signal_input = self.worker.client.data_converter.from_payloads(signal_input_payloads)
 
         task = SignalMethodTask(task_id=self.execution_id,
                                 workflow_instance=self.workflow_task.workflow_instance,
@@ -832,7 +831,7 @@ class ReplayDecider:
         if query_args is None:
             args = []
         else:
-            args = from_payloads(query_args)
+            args = self.worker.client.data_converter.from_payloads(query_args)
         task = QueryMethodTask(task_id=self.execution_id,
                                workflow_instance=self.workflow_task.workflow_instance,
                                query_name=query.query_type,
@@ -980,7 +979,7 @@ class DecisionTaskLoop:
         await decider.decide(decision_task.history.events)
         try:
             result = await decider.query(decision_task, decision_task.query)
-            return to_payloads([result])
+            return self.worker.client.data_converter.to_payloads([result])
         finally:
             decider.destroy()
 

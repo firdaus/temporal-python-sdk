@@ -8,8 +8,6 @@ from typing import List, Optional
 from temporal.api.common.v1 import WorkflowExecution, ActivityType, Payloads
 from temporal.api.workflowservice.v1 import PollActivityTaskQueueResponse, RecordActivityTaskHeartbeatRequest, \
     RespondActivityTaskFailedRequest, RespondActivityTaskCompletedRequest
-from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService
-from temporal.conversions import to_payloads, from_payloads
 from temporal.exception_handling import serialize_exception
 from temporal.exceptions import ActivityCancelledException
 from temporal.service_helpers import get_identity
@@ -48,12 +46,12 @@ class ActivityTask:
     workflow_namespace: str = None
 
 
-async def heartbeat(service: WorkflowService, task_token: bytes, details: object):
+async def heartbeat(client: 'WorkflowClient', task_token: bytes, details: object):
     request: RecordActivityTaskHeartbeatRequest = RecordActivityTaskHeartbeatRequest()
-    request.details = to_payloads([details])
+    request.details = client.data_converter.to_payloads([details])
     request.identity = get_identity()
     request.task_token = task_token
-    response = await service.record_activity_task_heartbeat(request=request)
+    response = await client.service.record_activity_task_heartbeat(request=request)
     # -----
     # if error:
     #     raise error
@@ -63,7 +61,7 @@ async def heartbeat(service: WorkflowService, task_token: bytes, details: object
 
 
 class ActivityContext:
-    service: WorkflowService = None
+    client: 'WorkflowClient' = None
     activity_task: ActivityTask = None
     namespace: str = None
     do_not_complete: bool = False
@@ -81,13 +79,13 @@ class ActivityContext:
     # - We might standardize on a background thread (using an in-memory queue) for heartbeats
     #   in which case it doesn't matter whether it's an async method or not.
     async def heartbeat(self, details: object):
-        await heartbeat(self.service, self.activity_task.task_token, details)
+        await heartbeat(self.client, self.activity_task.task_token, details)
 
     def get_heartbeat_details(self) -> object:
         details: Payloads = self.activity_task.heartbeat_details
         if not self.activity_task.heartbeat_details:
             return None
-        payloads: List[object] = from_payloads(details)
+        payloads: List[object] = self.client.data_converter.from_payloads(details)
         return payloads[0]
 
     def do_not_complete_on_return(self):
@@ -127,29 +125,32 @@ class Activity:
 
 @dataclass
 class ActivityCompletionClient:
-    service: WorkflowService
+    client: 'WorkflowClient'
 
     def heartbeat(self, task_token: bytes, details: object):
-        heartbeat(self.service, task_token, details)
+        heartbeat(self.client, task_token, details)
 
     async def complete(self, task_token: bytes, return_value: object):
-        await complete(self.service, task_token, return_value)
+        await complete(self.client, task_token, return_value)
 
     async def complete_exceptionally(self, task_token: bytes, ex: Exception):
-        await complete_exceptionally(self.service, task_token, ex)
+        await complete_exceptionally(self.client, task_token, ex)
 
 
-async def complete_exceptionally(service, task_token, ex: Exception):
+async def complete_exceptionally(client: 'WorkflowClient', task_token, ex: Exception):
     respond: RespondActivityTaskFailedRequest = RespondActivityTaskFailedRequest()
     respond.task_token = task_token
     respond.identity = get_identity()
     respond.failure = serialize_exception(ex)
-    await service.respond_activity_task_failed(request=respond)
+    await client.service.respond_activity_task_failed(request=respond)
 
 
-async def complete(service, task_token, return_value: object):
+async def complete(client: 'WorkflowClient', task_token, return_value: object):
     respond = RespondActivityTaskCompletedRequest()
     respond.task_token = task_token
-    respond.result = to_payloads([return_value])
+    respond.result = client.data_converter.to_payloads([return_value])
     respond.identity = get_identity()
-    await service.respond_activity_task_completed(request=respond)
+    await client.service.respond_activity_task_completed(request=respond)
+
+
+from temporal.workflow import WorkflowClient

@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from temporal.converter import DEFAULT_DATA_CONVERTER_INSTANCE
 from temporal.workerfactory import WorkerFactory
 from temporal.workflow import WorkflowClient
 from . import cleanup_worker
@@ -14,8 +15,9 @@ async def worker(request):
     task_queue = marker.args[1]
     activities = marker.kwargs.get("activities", [])
     workflows = marker.kwargs.get("workflows", [])
+    data_converter = marker.kwargs.get("data_converter", DEFAULT_DATA_CONVERTER_INSTANCE)
 
-    client: WorkflowClient = WorkflowClient.new_client("localhost", 7233)
+    client: WorkflowClient = WorkflowClient.new_client("localhost", 7233, data_converter=data_converter)
     factory = WorkerFactory(client, namespace)
     worker_instance = factory.new_worker(task_queue)
     for a_instance, a_cls in activities:

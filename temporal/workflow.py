@@ -9,7 +9,6 @@ from datetime import timedelta
 from typing import Callable, List, Type, Dict, Tuple, Any
 from uuid import uuid4
 
-from .activity import ActivityCompletionClient
 from .activity_method import RetryParameters, ActivityOptions
 from .api.common.v1 import WorkflowType, WorkflowExecution, SearchAttributes, Memo
 from .api.enums.v1 import WorkflowIdReusePolicy, HistoryEventFilterType, EventType
@@ -20,7 +19,7 @@ from .api.workflowservice.v1 import StartWorkflowExecutionRequest, GetWorkflowEx
     QueryWorkflowRequest, QueryWorkflowResponse, SignalWorkflowExecutionRequest, WorkflowServiceStub
 
 from .constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
-from .conversions import to_payloads, from_payloads, to_payload
+from .converter import DataConverter, DEFAULT_DATA_CONVERTER_INSTANCE
 from .errors import QueryFailedError
 from .exception_handling import deserialize_exception
 from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
@@ -133,12 +132,14 @@ class WorkflowClient:
     service: WorkflowServiceStub
     namespace: str
     options: WorkflowClientOptions
+    data_converter: DataConverter
 
     @classmethod
     def new_client(cls, host: str = "localhost", port: int = 7233, namespace: str = "",
-                   options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS) -> WorkflowClient:
+                   options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS,
+                   data_converter: DataConverter = DEFAULT_DATA_CONVERTER_INSTANCE) -> WorkflowClient:
         service = create_workflow_service(host, port, timeout=timeout)
-        return cls(service=service, namespace=namespace, options=options)
+        return cls(service=service, namespace=namespace, options=options, data_converter=data_converter)
 
     @classmethod
     async def start(cls, stub_fn: Callable, *args) -> WorkflowExecutionContext:
@@ -191,7 +192,7 @@ class WorkflowClient:
             history_event = history_response.history.events[0]
             if history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
                 completed_attributes = history_event.workflow_execution_completed_event_attributes
-                payloads: List[object] = from_payloads(completed_attributes.result)
+                payloads: List[object] = self.data_converter.from_payloads(completed_attributes.result)
                 return payloads[0]
             elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED:
                 failed_attributes = history_event.workflow_execution_failed_event_attributes
@@ -225,7 +226,7 @@ class WorkflowClient:
                 raise Exception("Unexpected history close event: " + str(history_event))
 
     def new_activity_completion_client(self):
-        return ActivityCompletionClient(self.service)
+        return ActivityCompletionClient(self)
 
     def close(self):
         self.service.channel.close()
@@ -253,7 +254,7 @@ async def exec_signal(workflow_client: WorkflowClient, sm: SignalMethod, args, s
     request = SignalWorkflowExecutionRequest()
     request.workflow_execution = stub_instance._execution  # type: ignore
     request.signal_name = sm.name
-    request.input = to_payloads(args)
+    request.input = workflow_client.data_converter.to_payloads(args)
     request.namespace = workflow_client.namespace
     response = await workflow_client.service.signal_workflow_execution(request=request)
 
@@ -264,7 +265,7 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     request.execution = stub_instance._execution  # type: ignore
     request.query = WorkflowQuery()
     request.query.query_type = qm.name
-    request.query.query_args = to_payloads(args)
+    request.query.query_args = workflow_client.data_converter.to_payloads(args)
     request.namespace = workflow_client.namespace
     response: QueryWorkflowResponse = await workflow_client.service.query_workflow(request=request)
     """
@@ -280,20 +281,20 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     """
     if response.query_rejected:
         raise QueryRejectedException(response.query_rejected.status)
-    return from_payloads(response.query_result)[0]
+    return workflow_client.data_converter.from_payloads(response.query_result)[0]
 
 
-def create_memo(m: Dict[str, object]) -> Memo:
+def create_memo(m: Dict[str, object], data_converter: DataConverter) -> Memo:
     memo = Memo();
     for k, v in m.items():
-        memo.fields[k] = to_payload(v)
+        memo.fields[k] = data_converter.to_payload(v)
     return memo
 
 
-def create_search_attributes(s: Dict[str, object]) -> SearchAttributes:
+def create_search_attributes(s: Dict[str, object], data_converter: DataConverter) -> SearchAttributes:
     search_attributes = SearchAttributes()
     for k, v in s.items():
-        search_attributes.indexed_fields[k] = to_payload(v)
+        search_attributes.indexed_fields[k] = data_converter.to_payload(v)
     return search_attributes
 
 
@@ -306,7 +307,7 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.workflow_type.name = wm._name
     start_request.task_queue = TaskQueue()
     start_request.task_queue.name = wm._task_queue
-    start_request.input = to_payloads(args)
+    start_request.input = workflow_client.data_converter.to_payloads(args)
 
     start_request.workflow_execution_timeout = wm._workflow_execution_timeout
     start_request.workflow_run_timeout = wm._workflow_run_timeout
@@ -318,9 +319,10 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.cron_schedule = wm._cron_schedule if wm._cron_schedule else None
 
     if wm._memo:
-        start_request.memo = create_memo(wm._memo)
+        start_request.memo = create_memo(wm._memo, workflow_client.data_converter)
     if wm._search_attributes:
-        start_request.search_attributes = create_search_attributes(wm._search_attributes)
+        start_request.search_attributes = create_search_attributes(wm._search_attributes,
+                                                                   workflow_client.data_converter)
 
     if workflow_options:
         if workflow_options.workflow_id:
@@ -338,9 +340,10 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
         if workflow_options.cron_schedule:
             start_request.cron_schedule = workflow_options.cron_schedule
         if workflow_options.memo:
-            start_request.memo = create_memo(workflow_options.memo)
+            start_request.memo = create_memo(workflow_options.memo, workflow_client.data_converter)
         if workflow_options.search_attributes:
-            start_request.search_attributes = create_search_attributes(workflow_options.search_attributes)
+            start_request.search_attributes = create_search_attributes(workflow_options.search_attributes,
+                                                                       workflow_client.data_converter)
 
     return start_request
 
@@ -543,3 +546,5 @@ class WorkflowExecutionTerminatedException(Exception):
     def __str__(self) -> str:
         return self.reason
 
+
+from .activity import ActivityCompletionClient

@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from temporal.api.enums.v1 import WorkflowIdReusePolicy
+from temporal.converter import DEFAULT_DATA_CONVERTER_INSTANCE
 from temporal.workflow import create_memo, create_search_attributes, WorkflowMethod, WorkflowClient, WorkflowOptions, \
     create_start_workflow_request
 
@@ -9,7 +10,7 @@ def test_create_memo():
     memo = create_memo({
         "name": "bob",
         "age": 20
-    })
+    }, DEFAULT_DATA_CONVERTER_INSTANCE)
     assert "name" in memo.fields
     assert "age" in memo.fields
     assert memo.fields["name"].data == b'\"bob\"'
@@ -20,7 +21,7 @@ def test_create_search_attributes():
     search_attributes = create_search_attributes({
         "name": "bob",
         "age": 20
-    })
+    }, DEFAULT_DATA_CONVERTER_INSTANCE)
     assert "name" in search_attributes.indexed_fields
     assert "age" in search_attributes.indexed_fields
     assert search_attributes.indexed_fields["name"].data == b'\"bob\"'
@@ -28,7 +29,7 @@ def test_create_search_attributes():
 
 
 def test_create_start_workflow_request_override_workflow_options():
-    client = WorkflowClient(None, "the-namespace", None)
+    client = WorkflowClient(None, "the-namespace", None, DEFAULT_DATA_CONVERTER_INSTANCE)
     wm = WorkflowMethod()
     options = WorkflowOptions(workflow_id="workflow-id",
                               workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE,

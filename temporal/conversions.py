@@ -100,35 +100,3 @@ DECODINGS = {
     METADATA_ENCODING_JSON: decode_json_string
 }
 
-
-def to_payload(arg: object) -> Payload:
-    for fn in ENCODINGS:
-        payload = fn(arg)
-        if payload is not None:
-            return payload
-    raise Exception(f"Object cannot be encoded: {arg}")
-
-
-def to_payloads(args: Union[object, List[object]]) -> Payloads:
-    payloads: Payloads = Payloads()
-    payloads.payloads = []
-    if isinstance(args, (str, bytes)) or not isinstance(args, Iterable):
-        args = [args]
-    for arg in args:
-        payloads.payloads.append(to_payload(arg))
-    return payloads
-
-
-def from_payload(payload: Payload) -> object:
-    encoding: bytes = payload.metadata[METADATA_ENCODING_KEY]
-    decoding = DECODINGS.get(encoding)
-    if not decoding:
-        raise Exception(f"Unsupported encoding: {str(encoding, 'utf-8')}")
-    return decoding(payload)
-
-
-def from_payloads(payloads: Payloads) -> List[object]:
-    args: List[object] = []
-    for payload in payloads.payloads:
-        args.append(from_payload(payload))
-    return args
