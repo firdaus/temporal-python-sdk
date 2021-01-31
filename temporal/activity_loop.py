@@ -67,7 +67,7 @@ async def activity_task_loop_func(worker: Worker):
                 if inspect.iscoroutinefunction(fn):
                     return_value = await fn(*args)
                 else:
-                    return_value = fn(*args)
+                    raise Exception(f"Activity method {fn.__module__}.{fn.__qualname__} should be a coroutine")
                 if activity_context.do_not_complete:
                     logger.info(f"Not completing activity {task.activity_type.name}({str(args)[1:-1]})")
                     continue

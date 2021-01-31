@@ -16,7 +16,7 @@ class GreetingActivities:
 
 class GreetingActivitiesImpl:
 
-    def compose_greeting(self, arg1):
+    async def compose_greeting(self, arg1):
         return "from-activity: " + arg1
 
 

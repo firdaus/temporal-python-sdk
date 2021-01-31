@@ -36,7 +36,7 @@ class GreetingActivities:
 
 class GreetingActivitiesImpl:
 
-    def compose_greeting(self, sleep_seconds):
+    async def compose_greeting(self, sleep_seconds):
         Activity.do_not_complete_on_return()
         thread = threading.Thread(target=greeting_activities_thread_func, args=(Activity.get_task_token(), sleep_seconds))
         thread.start()

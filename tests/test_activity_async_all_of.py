@@ -21,7 +21,7 @@ class GreetingActivities:
 class GreetingActivitiesImpl:
     activity_method_executed_counter: int = 0
 
-    def compose_greeting(self, arg):
+    async def compose_greeting(self, arg):
         GreetingActivitiesImpl.activity_method_executed_counter += 1
         return arg
 

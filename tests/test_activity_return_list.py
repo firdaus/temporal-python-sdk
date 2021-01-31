@@ -16,7 +16,7 @@ class GreetingActivities:
 
 class GreetingActivitiesImpl:
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         return ["a", "b", "c"]
 
 

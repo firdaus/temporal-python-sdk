@@ -18,7 +18,7 @@ class GreetingActivities:
 class GreetingActivitiesImpl:
     activity_method_executed: bool = False
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         global invoke_count
         invoke_count += 1
         if invoke_count < 3:

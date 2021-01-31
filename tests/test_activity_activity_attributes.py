@@ -22,7 +22,7 @@ class GreetingActivities:
 class GreetingActivitiesImpl:
     activity_method_executed: bool = False
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         global namespace, task_token, workflow_execution
         namespace = Activity.get_namespace()
         task_token = Activity.get_task_token()
