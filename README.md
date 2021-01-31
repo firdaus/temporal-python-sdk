@@ -18,7 +18,7 @@ from temporal.workflow import workflow_method, Workflow, WorkflowClient
 logging.basicConfig(level=logging.INFO)
 
 TASK_QUEUE = "HelloActivity-python-tq"
-DOMAIN = "default"
+NAMESPACE = "default"
 
 # Activities Interface
 class GreetingActivities:
@@ -52,9 +52,9 @@ class GreetingWorkflowImpl(GreetingWorkflow):
 
 
 async def client_main():
-    client = WorkflowClient.new_client(namespace=DOMAIN)
+    client = WorkflowClient.new_client(namespace=NAMESPACE)
 
-    factory = WorkerFactory(client, DOMAIN)
+    factory = WorkerFactory(client, NAMESPACE)
     worker = factory.new_worker(TASK_QUEUE)
     worker.register_activities_implementation(GreetingActivitiesImpl(), "GreetingActivities")
     worker.register_workflow_implementation_type(GreetingWorkflowImpl)
