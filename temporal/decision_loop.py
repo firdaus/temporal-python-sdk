@@ -779,8 +779,8 @@ class ReplayDecider:
         return decisions
 
     def destroy(self):
-        if self.workflow_task:
-            self.workflow_task.destroy()
+        for t in self.tasks:
+            t.destroy()
 
     def start_timer(self, request: StartTimerCommandAttributes):
         start_event_id = self.next_decision_event_id
