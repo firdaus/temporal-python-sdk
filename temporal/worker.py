@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Tuple, List
+from typing import Callable, Dict, Tuple
 import inspect
 import logging
 
@@ -67,6 +67,8 @@ class Worker:
     threads_stopped: int = 0
     stop_requested: bool = False
     timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS
+    num_activity_tasks = 1
+    num_worker_tasks = 1
 
     def register_activities_implementation(self, activities_instance: object, activities_cls_name: str = None):
         cls_name = activities_cls_name if activities_cls_name else type(activities_instance).__name__
@@ -118,11 +120,13 @@ class Worker:
         self.threads_started = 0
         self.stop_requested = False
         if self.activities:
-            asyncio.create_task(activity_task_loop_func(self))
-            self.threads_started += 1
+            for i in range(0, self.num_activity_tasks):
+                asyncio.create_task(activity_task_loop_func(self))
+                self.threads_started += 1
         if self.workflow_methods:
-            decision_task_loop_func(self)
-            self.threads_started += 1
+            for i in range(0, self.num_worker_tasks):
+                decision_task_loop_func(self)
+                self.threads_started += 1
 
     async def stop(self, background=False):
         self.stop_requested = True
