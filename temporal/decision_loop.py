@@ -35,7 +35,8 @@ from .api.query.v1 import WorkflowQuery
 from .api.taskqueue.v1 import TaskQueue
 from .api.workflowservice.v1 import PollWorkflowTaskQueueRequest, PollWorkflowTaskQueueResponse, \
     RespondWorkflowTaskCompletedRequest, RespondWorkflowTaskCompletedResponse, RespondQueryTaskCompletedRequest, \
-    QueryWorkflowResponse, QueryWorkflowRequest, WorkflowServiceStub, RespondQueryTaskCompletedResponse
+    QueryWorkflowResponse, QueryWorkflowRequest, WorkflowServiceStub, RespondQueryTaskCompletedResponse, \
+    GetWorkflowExecutionHistoryRequest
 
 from .decisions import DecisionId, DecisionTarget
 from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
@@ -918,6 +919,15 @@ class DecisionTaskLoop:
                         continue
                     if not decision_task:
                         continue
+                    next_page_token = decision_task.next_page_token
+                    while next_page_token:
+                        history_request = GetWorkflowExecutionHistoryRequest()
+                        history_request.execution = decision_task.workflow_execution
+                        history_request.next_page_token = next_page_token
+                        history_request.namespace = self.worker.namespace
+                        history_response = await self.service.get_workflow_execution_history(request=history_request)
+                        decision_task.history.events.extend(history_response.history.events)
+                        next_page_token = history_response.next_page_token
                     if decision_task.query:
                         try:
                             result: Payloads = await self.process_query(decision_task)
