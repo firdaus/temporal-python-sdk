@@ -22,14 +22,14 @@ class Greeting:
 
 class GreetingActivities:
     @activity_method(task_queue=TASK_QUEUE, schedule_to_close_timeout=timedelta(seconds=1000))
-    async def compose_greeting(self) -> Greeting:
+    async def compose_greeting(self, name: str, age: int) -> Greeting:
         raise NotImplementedError
 
 
 class GreetingActivitiesImpl:
 
-    async def compose_greeting(self) -> Greeting:
-        return Greeting("Bob", 20)
+    async def compose_greeting(self, name: str, age: int) -> Greeting:
+        return Greeting(name, age)
 
 
 class GreetingWorkflow:
@@ -44,7 +44,7 @@ class GreetingWorkflowImpl(GreetingWorkflow):
         self.greeting_activities: GreetingActivities = Workflow.new_activity_stub(GreetingActivities)
 
     async def get_greeting(self) -> Greeting:
-        return await self.greeting_activities.compose_greeting()
+        return await self.greeting_activities.compose_greeting("Bob", 20)
 
 
 class PickleDataConverter(DataConverter):
@@ -55,7 +55,7 @@ class PickleDataConverter(DataConverter):
         payload.data = pickle.dumps(arg)
         return payload
 
-    def from_payload(self, payload: Payload) -> object:
+    def from_payload(self, payload: Payload, type_hint: type = None) -> object:
         obj = pickle.loads(payload.data)
         return obj
 

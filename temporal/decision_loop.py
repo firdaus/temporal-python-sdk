@@ -36,6 +36,7 @@ from .api.taskqueue.v1 import TaskQueue
 from .api.workflowservice.v1 import PollWorkflowTaskQueueRequest, PollWorkflowTaskQueueResponse, \
     RespondWorkflowTaskCompletedRequest, RespondWorkflowTaskCompletedResponse, RespondQueryTaskCompletedRequest, \
     QueryWorkflowResponse, QueryWorkflowRequest, WorkflowServiceStub, RespondQueryTaskCompletedResponse
+from .converter import get_fn_ret_type_hints, get_fn_args_type_hints, DataConverter
 
 from .decisions import DecisionId, DecisionTarget
 from .exception_handling import serialize_exception, deserialize_exception, failure_to_str
@@ -214,11 +215,12 @@ class ITask:
 @dataclass
 class WorkflowMethodTask(ITask):
     task_id: str = None
-    workflow_input: List = None
+    workflow_input: Payloads = None
     worker: Worker = None
     workflow_type: WorkflowType = None
     workflow_instance: object = None
     ret_value: object = None
+    data_converter: DataConverter = None
 
     def __post_init__(self):
         logger.debug(f"[task-{self.task_id}] Created")
@@ -232,7 +234,7 @@ class WorkflowMethodTask(ITask):
             self.task = asyncio.get_event_loop().create_task(self.workflow_main())
         except Exception as ex:
             logger.error(
-                f"Initialization of Workflow {self.workflow_type.name}({str(self.workflow_input)[1:-1]}) failed", exc_info=1)
+                f"Initialization of Workflow {self.workflow_type.name} failed", exc_info=1)
             self.decider.fail_workflow_execution(ex)
             self.status = Status.DONE
 
@@ -251,19 +253,27 @@ class WorkflowMethodTask(ITask):
             self.decider.fail_workflow_execution(ex)
             return
 
-        cls, workflow_proc = self.worker.workflow_methods[self.workflow_type.name]
+        cls, workflow_proc = self.worker.get_workflow_method(self.workflow_type.name)
+        if self.workflow_input is None:
+            workflow_input = []
+        else:
+            type_hints = get_fn_args_type_hints(workflow_proc)
+            # We need to pop because ismethod(workflow_proc) is False because it wasn't taken from an instance
+            type_hints.pop(0)
+            workflow_input = self.data_converter.from_payloads(self.workflow_input, type_hints)
+
         self.status = Status.RUNNING
         try:
-            logger.info(f"Invoking workflow {self.workflow_type.name}({str(self.workflow_input)[1:-1]})")
-            self.ret_value = await workflow_proc(self.workflow_instance, *self.workflow_input)
+            logger.info(f"Invoking workflow {self.workflow_type.name}({str(workflow_input)[1:-1]})")
+            self.ret_value = await workflow_proc(self.workflow_instance, *workflow_input)
             logger.info(
-                f"Workflow {self.workflow_type.name}({str(self.workflow_input)[1:-1]}) returned {self.ret_value}")
+                f"Workflow {self.workflow_type.name}({str(workflow_input)[1:-1]}) returned {self.ret_value}")
             self.decider.complete_workflow_execution(self.ret_value)
         except CancelledError:
             logger.debug("Coroutine cancelled (expected)")
         except Exception as ex:
             logger.error(
-                f"Workflow {self.workflow_type.name}({str(self.workflow_input)[1:-1]}) failed", exc_info=1)
+                f"Workflow {self.workflow_type.name}({str(workflow_input)[1:-1]}) failed", exc_info=1)
             self.decider.fail_workflow_execution(ex)
         finally:
             self.status = Status.DONE
@@ -277,9 +287,10 @@ class QueryMethodTask(ITask):
     task_id: str = None
     workflow_instance: object = None
     query_name: str = None
-    query_input: List = None
+    query_input: Payloads = None
     exception_thrown: BaseException = None
     ret_value: object = None
+    data_converter: DataConverter = None
 
     def start(self):
         logger.debug(f"[query-task-{self.task_id}-{self.query_name}] Created")
@@ -299,15 +310,22 @@ class QueryMethodTask(ITask):
         self.status = Status.RUNNING
 
         try:
-            logger.info(f"Invoking query {self.query_name}({str(self.query_input)[1:-1]})")
-            self.ret_value = await query_proc(self.workflow_instance, *self.query_input)
+            logger.info(f"Invoking query {self.query_name}")
+            if not self.query_input:
+                query_input = []
+            else:
+                hints = get_fn_args_type_hints(query_proc)
+                # We need to pop because ismethod(query_proc) is False because it wasn't taken from an instance
+                hints.pop(0)
+                query_input = self.data_converter.from_payloads(self.query_input, hints)
+            self.ret_value = await query_proc(self.workflow_instance, *query_input)
             logger.info(
-                f"Query {self.query_name}({str(self.query_input)[1:-1]}) returned {self.ret_value}")
+                f"Query {self.query_name} returned {self.ret_value}")
         except CancelledError:
             logger.debug("Coroutine cancelled (expected)")
         except Exception as ex:
             logger.error(
-                f"Query {self.query_name}({str(self.query_input)[1:-1]}) failed", exc_info=1)
+                f"Query {self.query_name} failed", exc_info=1)
             self.exception_thrown = ex
         finally:
             self.status = Status.DONE
@@ -318,9 +336,10 @@ class SignalMethodTask(ITask):
     task_id: str = None
     workflow_instance: object = None
     signal_name: str = None
-    signal_input: List = None
+    signal_input: Payloads = None
     exception_thrown: BaseException = None
     ret_value: object = None
+    data_converter: DataConverter = None
 
     def start(self):
         logger.debug(f"[signal-task-{self.task_id}-{self.signal_name}] Created")
@@ -340,16 +359,23 @@ class SignalMethodTask(ITask):
         self.status = Status.RUNNING
 
         try:
-            logger.info(f"Invoking signal {self.signal_name}({str(self.signal_input)[1:-1]})")
-            self.ret_value = await signal_proc(self.workflow_instance, *self.signal_input)
+            logger.info(f"Invoking signal {self.signal_name}")
+            if self.signal_input is None:
+                signal_input = []
+            else:
+                hints = get_fn_args_type_hints(signal_proc)
+                # We need to pop because ismethod(signal_proc) is False because it wasn't taken from an instance
+                hints.pop(0)
+                signal_input = self.data_converter.from_payloads(self.signal_input, hints)
+            self.ret_value = await signal_proc(self.workflow_instance, *signal_input)
             logger.info(
-                f"Signal {self.signal_name}({str(self.signal_input)[1:-1]}) returned {self.ret_value}")
+                f"Signal {self.signal_name} returned {self.ret_value}")
             self.decider.complete_signal_execution(self)
         except CancelledError:
             logger.debug("Coroutine cancelled (expected)")
         except Exception as ex:
             logger.error(
-                f"Signal {self.signal_name}({str(self.signal_input)[1:-1]}) failed", exc_info=1)
+                f"Signal {self.signal_name} failed", exc_info=1)
             self.exception_thrown = ex
         finally:
             self.status = Status.DONE
@@ -408,7 +434,13 @@ class ActivityFuture:
                                                         failure_to_str(serialize_exception(ex1)))
             raise activity_failure
         assert self.future.done()
-        return self.future.result()
+        data_converter, raw_result = self.future.result()
+        if self.parameters.fn:
+            hints = get_fn_ret_type_hints(self.parameters.fn)
+        else:
+            # Untyped activity stubs won't have "fn"
+            hints = []
+        return data_converter.from_payloads(raw_result, hints)[0]
 
 
 @dataclass
@@ -470,8 +502,7 @@ class DecisionContext:
             future = self.scheduled_activities.get(attr.scheduled_event_id)
             if future:
                 self.scheduled_activities.pop(attr.scheduled_event_id)
-                result = self.decider.worker.client.data_converter.from_payloads(attr.result)[0]
-                future.set_result(result)
+                future.set_result((self.decider.worker.client.data_converter, attr.result))
             else:
                 raise NonDeterministicWorkflowException(
                     f"Trying to complete activity event {attr.scheduled_event_id} that is not in scheduled_activities")
@@ -627,12 +658,10 @@ class ReplayDecider:
     async def handle_workflow_execution_started(self, event: HistoryEvent):
         start_event_attributes = event.workflow_execution_started_event_attributes
         self.decision_context.set_current_run_id(start_event_attributes.original_execution_run_id)
-        if start_event_attributes.input is None or start_event_attributes.input == b'':
-            workflow_input = []
-        else:
-            workflow_input = self.worker.client.data_converter.from_payloads(start_event_attributes.input)
-        self.workflow_task = WorkflowMethodTask(task_id=self.execution_id, workflow_input=workflow_input,
-                                                worker=self.worker, workflow_type=self.workflow_type, decider=self)
+
+        self.workflow_task = WorkflowMethodTask(task_id=self.execution_id, workflow_input=start_event_attributes.input,
+                                                worker=self.worker, workflow_type=self.workflow_type, decider=self,
+                                                data_converter=self.worker.client.data_converter)
         await self.event_loop.run_event_loop_once()
         assert self.workflow_task.workflow_instance
         self.tasks.append(self.workflow_task)
@@ -726,16 +755,12 @@ class ReplayDecider:
     async def handle_workflow_execution_signaled(self, event: HistoryEvent):
         signaled_event_attributes = event.workflow_execution_signaled_event_attributes
         signal_input_payloads: Payloads = signaled_event_attributes.input
-        if not signal_input_payloads:
-            signal_input = []
-        else:
-            signal_input = self.worker.client.data_converter.from_payloads(signal_input_payloads)
-
         task = SignalMethodTask(task_id=self.execution_id,
                                 workflow_instance=self.workflow_task.workflow_instance,
                                 signal_name=signaled_event_attributes.signal_name,
-                                signal_input=signal_input,
-                                decider=self)
+                                signal_input=signal_input_payloads,
+                                decider=self,
+                                data_converter=self.worker.client.data_converter)
         self.tasks.append(task)
         task.start()
 
@@ -828,15 +853,12 @@ class ReplayDecider:
 
     async def query(self, decision_task: PollWorkflowTaskQueueResponse, query: WorkflowQuery) -> object:
         query_args: Payloads = query.query_args
-        if query_args is None:
-            args = []
-        else:
-            args = self.worker.client.data_converter.from_payloads(query_args)
         task = QueryMethodTask(task_id=self.execution_id,
                                workflow_instance=self.workflow_task.workflow_instance,
                                query_name=query.query_type,
-                               query_input=args,
-                               decider=self)
+                               query_input=query_args,
+                               decider=self,
+                               data_converter=self.worker.client.data_converter)
         self.tasks.append(task)
         task.start()
         await self.event_loop.run_event_loop_once()

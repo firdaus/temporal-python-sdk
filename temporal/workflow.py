@@ -19,7 +19,7 @@ from .api.workflowservice.v1 import StartWorkflowExecutionRequest, GetWorkflowEx
     QueryWorkflowRequest, QueryWorkflowResponse, SignalWorkflowExecutionRequest, WorkflowServiceStub
 
 from .constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
-from .converter import DataConverter, DEFAULT_DATA_CONVERTER_INSTANCE
+from .converter import DataConverter, DEFAULT_DATA_CONVERTER_INSTANCE, get_fn_ret_type_hints, get_fn_args_type_hints
 from .errors import QueryFailedError
 from .exception_handling import deserialize_exception
 from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
@@ -125,6 +125,7 @@ class WorkflowStub:
 class WorkflowExecutionContext:
     workflow_type: str
     workflow_execution: WorkflowExecution
+    workflow_method_instance: WorkflowMethod
 
 
 @dataclass
@@ -181,9 +182,15 @@ class WorkflowClient:
     async def wait_for_close(self, context: WorkflowExecutionContext) -> object:
         return await self.wait_for_close_with_workflow_id(workflow_id=context.workflow_execution.workflow_id,
                                                     run_id=context.workflow_execution.run_id,
-                                                    workflow_type=context.workflow_type)
+                                                    workflow_method_instance=context.workflow_method_instance)
 
-    async def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None, workflow_type: str = None):
+    async def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None,
+                                              workflow_method_instance: WorkflowMethod = None,
+                                              workflow_fn: Callable = None):
+        if not workflow_method_instance and workflow_fn:
+            if not hasattr(workflow_fn, "_workflow_method"):
+                raise Exception("workflow_fn is not a valid workflow stub function")
+            workflow_method_instance = workflow_fn._workflow_method
         while True:
             history_request = create_close_history_event_request(self, workflow_id, run_id)
             history_response = await self.service.get_workflow_execution_history(request=history_request)
@@ -192,7 +199,11 @@ class WorkflowClient:
             history_event = history_response.history.events[0]
             if history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
                 completed_attributes = history_event.workflow_execution_completed_event_attributes
-                payloads: List[object] = self.data_converter.from_payloads(completed_attributes.result)
+                type_hints = []
+                if workflow_method_instance:
+                    type_hints = workflow_method_instance._ret_type_hints
+                payloads: List[object] = self.data_converter.from_payloads(completed_attributes.result,
+                                                                           type_hints=type_hints)
                 return payloads[0]
             elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED:
                 failed_attributes = history_event.workflow_execution_failed_event_attributes
@@ -238,7 +249,7 @@ async def exec_workflow(workflow_client: WorkflowClient, wm: WorkflowMethod, arg
     start_response = await workflow_client.service.start_workflow_execution(request=start_request)
     execution = WorkflowExecution(workflow_id=start_request.workflow_id, run_id=start_response.run_id)
     stub_instance._execution = execution  # type: ignore
-    return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution)
+    return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution, workflow_method_instance=wm)
 
 
 async def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod, args: List,
@@ -281,7 +292,7 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     """
     if response.query_rejected:
         raise QueryRejectedException(response.query_rejected.status)
-    return workflow_client.data_converter.from_payloads(response.query_result)[0]
+    return workflow_client.data_converter.from_payloads(response.query_result, qm.ret_type_hints)[0]
 
 
 def create_memo(m: Dict[str, object], data_converter: DataConverter) -> Memo:
@@ -404,6 +415,7 @@ class WorkflowMethod(object):
     _workflow_task_timeout: timedelta = None
     _memo: Dict[str, object] = None
     _search_attributes: Dict[str, object] = None
+    _ret_type_hints: List[type] = None
 
 
 def workflow_method(func=None,
@@ -428,6 +440,7 @@ def workflow_method(func=None,
         fn._workflow_method._workflow_task_timeout = workflow_task_timeout
         fn._workflow_method._memo = memo
         fn._workflow_method._search_attributes = search_attributes
+        fn._workflow_method._ret_type_hints = get_fn_ret_type_hints(fn)
         return fn
 
     if func and inspect.isfunction(func):
@@ -439,12 +452,14 @@ def workflow_method(func=None,
 @dataclass
 class QueryMethod:
     name: str = None
+    ret_type_hints: List[type] = None
 
 
 def query_method(func=None, name: str = None):
     def wrapper(fn):
         fn._query_method = QueryMethod()
         fn._query_method.name = name if name else get_workflow_method_name(fn)
+        fn._query_method.ret_type_hints = get_fn_ret_type_hints(fn)
         return fn
 
     if func and inspect.isfunction(func):

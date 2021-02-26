@@ -8,6 +8,7 @@ from grpclib import GRPCError
 
 from temporal.activity import ActivityContext, ActivityTask, complete_exceptionally, complete
 from temporal.api.taskqueue.v1 import TaskQueue, TaskQueueMetadata
+from temporal.converter import get_fn_args_type_hints
 from temporal.retry import retry
 from temporal.service_helpers import get_identity
 from temporal.worker import Worker, StopRequestedException
@@ -48,13 +49,14 @@ async def activity_task_loop_func(worker: Worker):
                 logger.debug("PollActivityTaskQueue has no task_token (expected): %s", task)
                 continue
 
-            args: List[object] = worker.client.data_converter.from_payloads(task.input)
-            print(args)
             logger.info(f"Request for activity: {task.activity_type.name}")
             fn = worker.activities.get(task.activity_type.name)
             if not fn:
                 logger.error("Activity type not found: " + task.activity_type.name)
                 continue
+
+            args: List[object] = worker.client.data_converter.from_payloads(task.input,
+                                                                            get_fn_args_type_hints(fn))
 
             process_start = datetime.datetime.now()
             activity_context = ActivityContext()
