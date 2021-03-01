@@ -112,7 +112,7 @@ if __name__ == '__main__':
 - [x] ActivityStub and Workflow.newUntypedActivityStub
 - [x] Remove threading, use coroutines for everything all concurrency
 - [x] Classes as arguments and return values to/from activity and workflow methods (DataConverter)
-    - [ ] Type hints for DataConverter
+    - [x] Type hints for DataConverter
 - [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
 - [ ] Parallel activity execution (STATUS: there's a working but not finalized API).
 - [ ] Custom workflow ids through start() and new_workflow_stub()
