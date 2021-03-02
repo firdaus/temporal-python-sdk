@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="temporal-python-sdk",
-    version="1.0.0-beta1",
+    version="1.0.15",
     author="Mohammed Firdaus",
     author_email="firdaus.halim@gmail.com",
     description="Unofficial Python SDK for the Temporal Workflow Engine",
@@ -15,7 +15,7 @@ setuptools.setup(
     url="https://github.com/firdaus/temporal-python-sdk",
     packages=setuptools.find_packages(exclude=["cadence", "tests", "cadence.*", "tests.*"]),
     install_requires=[
-        "betterproto @ git+https://github.com/firdaus/python-betterproto@f7e9ccc6dab6cd42626ad420e3ebfe2a79b9f699",
+        "betterproto-for-temporal-python-sdk==1.2.5",
         "dataclasses-json==0.3.8",
         "grpcio==1.30.0",
         "grpclib==0.3.2",
