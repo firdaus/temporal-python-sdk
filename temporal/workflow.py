@@ -338,21 +338,21 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     if workflow_options:
         if workflow_options.workflow_id:
             start_request.workflow_id = workflow_options.workflow_id
-        if workflow_options.workflow_id_reuse_policy:
+        if workflow_options.workflow_id_reuse_policy is not None:
             start_request.workflow_id_reuse_policy = workflow_options.workflow_id_reuse_policy
-        if workflow_options.workflow_run_timeout:
+        if workflow_options.workflow_run_timeout is not None:
             start_request.workflow_run_timeout = workflow_options.workflow_run_timeout
-        if workflow_options.workflow_execution_timeout:
+        if workflow_options.workflow_execution_timeout is not None:
             start_request.workflow_execution_timeout = workflow_options.workflow_execution_timeout
-        if workflow_options.workflow_task_timeout:
+        if workflow_options.workflow_task_timeout is not None:
             start_request.workflow_task_timeout = workflow_options.workflow_task_timeout
         if workflow_options.task_queue:
             start_request.task_queue = workflow_options.task_queue
         if workflow_options.cron_schedule:
             start_request.cron_schedule = workflow_options.cron_schedule
-        if workflow_options.memo:
+        if workflow_options.memo is not None:
             start_request.memo = create_memo(workflow_options.memo, workflow_client.data_converter)
-        if workflow_options.search_attributes:
+        if workflow_options.search_attributes is not None:
             start_request.search_attributes = create_search_attributes(workflow_options.search_attributes,
                                                                        workflow_client.data_converter)
 
@@ -422,9 +422,9 @@ def workflow_method(func=None,
                     name=None,
                     workflow_id=None,
                     workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-                    workflow_execution_timeout=timedelta(seconds=7200),  # (2 hours)
-                    workflow_run_timeout=timedelta(seconds=7200),  # 2 hours
-                    workflow_task_timeout=timedelta(seconds=60),
+                    workflow_execution_timeout=timedelta(seconds=0),
+                    workflow_run_timeout=timedelta(seconds=0),
+                    workflow_task_timeout=timedelta(seconds=60),  # default on the server is 10s
                     task_queue=None,
                     memo: Dict[str, object] = None,
                     search_attributes: Dict[str, object] = None):
