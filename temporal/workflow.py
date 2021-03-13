@@ -6,7 +6,7 @@ import random
 import uuid
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Callable, List, Type, Dict, Tuple, Any
+from typing import Callable, List, Type, Dict, Tuple, Any, TypeVar
 from uuid import uuid4
 
 from .activity_method import RetryParameters, ActivityOptions
@@ -27,18 +27,26 @@ from .exceptions import WorkflowFailureException, ActivityFailureException, Quer
 from .service_helpers import create_workflow_service, get_identity
 
 
+T = TypeVar('T')
+
+
 class Workflow:
 
     @staticmethod
-    def new_activity_stub(activities_cls, retry_parameters: RetryParameters = None, activity_options: ActivityOptions = None):
+    def new_activity_stub(activities_cls: Type[T], retry_parameters: RetryParameters = None, activity_options: ActivityOptions = None) -> T:
         from .decision_loop import ITask
         task: ITask = ITask.current()
         assert task
-        cls = activities_cls()
-        cls._decision_context = task.decider.decision_context
-        cls._retry_parameters = retry_parameters  # type: ignore
-        cls._activity_options = activity_options
-        return cls
+        attrs: Dict[str, Any] = {}
+        for name, fn in inspect.getmembers(activities_cls, inspect.isfunction):
+            if hasattr(fn, "stub_activity_fn"):
+                attrs[name] = fn.stub_activity_fn
+        stub_cls = type(activities_cls.__name__, (object,), attrs)
+        stub_instance = stub_cls()
+        stub_instance._decision_context = task.decider.decision_context
+        stub_instance._retry_parameters = retry_parameters  # type: ignore
+        stub_instance._activity_options = activity_options
+        return stub_instance
 
     @staticmethod
     def new_untyped_activity_stub(retry_parameters: RetryParameters = None,

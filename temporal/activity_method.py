@@ -69,7 +69,8 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
         execute_parameters.retry_parameters = retry_parameters
         # noinspection PyTypeHints
         stub_activity_fn._execute_parameters = execute_parameters  # type: ignore
-        return stub_activity_fn
+        fn.stub_activity_fn = stub_activity_fn
+        return fn
 
     if func and inspect.isfunction(func):
         raise Exception("activity_method must be called with arguments")
