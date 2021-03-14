@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="temporal-python-sdk",
-    version="1.0.16",
+    version="1.0.17",
     author="Mohammed Firdaus",
     author_email="firdaus.halim@gmail.com",
     description="Unofficial Python SDK for the Temporal Workflow Engine",
