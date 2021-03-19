@@ -1,4 +1,6 @@
 import asyncio
+from asyncio.events import AbstractEventLoop
+from typing import Optional
 
 import pytest
 
@@ -6,6 +8,16 @@ from temporal.converter import DEFAULT_DATA_CONVERTER_INSTANCE
 from temporal.workerfactory import WorkerFactory
 from temporal.workflow import WorkflowClient
 from . import cleanup_worker
+
+loop: Optional[AbstractEventLoop] = None
+
+
+@pytest.fixture
+def event_loop():
+    global loop
+    if not loop:
+        loop = asyncio.get_event_loop()
+    yield loop
 
 
 @pytest.fixture
