@@ -130,7 +130,7 @@ if __name__ == '__main__':
 - [ ] ContinueAsNew ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 - [ ] Sticky workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 - [ ] Child Workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
-- [ ] 
+
 2.0
 - [ ] Compatibility with Java client ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
