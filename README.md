@@ -132,6 +132,9 @@ if __name__ == '__main__':
 - [ ] Child Workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 - [ ] Timers ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 
+1.3
+- [ ] Support for keyword arguments ![](https://img.shields.io/badge/PRs-welcome-informational)
+
 2.0
 - [ ] Compatibility with Java client ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
