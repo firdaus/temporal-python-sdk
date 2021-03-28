@@ -479,8 +479,8 @@ class DecisionContext:
         return ActivityFuture(parameters=parameters, scheduled_event_id=scheduled_event_id,
                               future=future)
 
-    async def schedule_timer(self, seconds: int):
-        future = self.decider.event_loop.create_future()
+    def schedule_timer(self, seconds: int):
+        future: Future[Any] = self.decider.event_loop.create_future()
 
         def callback(ex: Exception):
             nonlocal future
@@ -490,12 +490,8 @@ class DecisionContext:
                 future.set_result("time-fired")
 
         self.decider.decision_context.create_timer(delay_seconds=seconds, callback=callback)
-        await future
-        assert future.done()
-        exception = future.exception()
-        if exception:
-            raise exception
-        return
+        return future
+
 
     def handle_activity_task_completed(self, event: HistoryEvent):
         attr = event.activity_task_completed_event_attributes
