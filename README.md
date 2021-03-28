@@ -125,12 +125,12 @@ if __name__ == '__main__':
 - [x] Parallel activity execution (STATUS: there's a working but not finalized API).
 
 1.2
+- [x] Timers
+- [x] Custom workflow ids through start() and new_workflow_stub()
 - [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
-- [ ] Custom workflow ids through start() and new_workflow_stub()
 - [ ] ContinueAsNew ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 - [ ] Sticky workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
 - [ ] Child Workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
-- [x] Timers
 
 1.3
 - [ ] Support for keyword arguments ![](https://img.shields.io/badge/PRs-welcome-informational)
