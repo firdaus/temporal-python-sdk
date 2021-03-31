@@ -69,3 +69,4 @@ async def test(worker):
     ret_value = await greeting_workflow.get_greeting()
 
     assert ret_value == Greeting("Bob", 20)
+    client.close()

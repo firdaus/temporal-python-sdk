@@ -9,6 +9,9 @@ This should be considered EXPERIMENTAL at the moment. At the moment, all I can s
 ```
 pip install temporal-python-sdk
 ```
+## Sample Code
+
+Sample code for using this library can be found in [Workflows in Python Using Temporal](https://onepointzero.app/workflows-in-python-using-temporal/).
 
 ## Hello World
 
@@ -119,21 +122,26 @@ if __name__ == '__main__':
 - [x] Remove threading, use coroutines for everything all concurrency
 - [x] Classes as arguments and return values to/from activity and workflow methods (DataConverter)
     - [x] Type hints for DataConverter
+- [x] Parallel activity execution (STATUS: there's a working but not finalized API).
+
+1.2
+- [x] Timers
+- [x] Custom workflow ids through start() and new_workflow_stub()
 - [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
-- [ ] Parallel activity execution (STATUS: there's a working but not finalized API).
-- [ ] Custom workflow ids through start() and new_workflow_stub()
-- [ ] ContinueAsNew ![](https://img.shields.io/badge/PRs-welcome-informational)
-- [ ] Compatibility with Java client ![](https://img.shields.io/badge/PRs-welcome-informational)
-- [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] ContinueAsNew ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
+- [ ] Sticky workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
+- [ ] Child Workflows ![status-wip](https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
+
+1.3
+- [ ] Support for keyword arguments ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 2.0
+- [ ] Compatibility with Java client ![](https://img.shields.io/badge/PRs-welcome-informational)
+- [ ] Compatibility with Golang client ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Upgrade python-betterproto ![](https://img.shields.io/badge/PRs-welcome-informational)
-- [ ] Sticky workflows ![](https://img.shields.io/badge/PRs-welcome-informational)
 
 Post 2.0:
 - [ ] sideEffect/mutableSideEffect ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Local activity ![](https://img.shields.io/badge/PRs-welcome-informational)
-- [ ] Timers ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Cancellation Scopes ![](https://img.shields.io/badge/PRs-welcome-informational)
-- [ ] Child Workflows ![](https://img.shields.io/badge/PRs-welcome-informational)
 - [ ] Explicit activity ids for activity invocations ![](https://img.shields.io/badge/PRs-welcome-informational)

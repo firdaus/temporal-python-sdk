@@ -4,6 +4,7 @@ import inspect
 import json
 import random
 import uuid
+from asyncio import Future
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, List, Type, Dict, Tuple, Any, TypeVar
@@ -70,9 +71,19 @@ class Workflow:
 
     @staticmethod
     async def sleep(seconds: int):
+        future = Workflow.new_timer(seconds)
+        await future
+        assert future.done()
+        exception = future.exception()
+        if exception:
+            raise exception
+
+    @staticmethod
+    def new_timer(seconds: int) -> Future[Any]:
         from .decision_loop import ITask
         task: ITask = ITask.current()
-        await task.decider.decision_context.schedule_timer(seconds)
+        future = task.decider.decision_context.schedule_timer(seconds)
+        return future
 
     @staticmethod
     def current_time_millis() -> int:
