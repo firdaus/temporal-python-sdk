@@ -4,5 +4,4 @@ from temporal.converter import DefaultDataConverter
 
 def test_no_payloads():
     converter = DefaultDataConverter()
-    p = Payloads(payloads=None)
-    assert converter.from_payloads(p) == [None]
+    assert converter.from_payloads(None) == [None]
