@@ -39,6 +39,8 @@ class DataConverter:
 
     def from_payloads(self, payloads: Payloads, type_hints: List[type] = []) -> List[object]:
         args: List[object] = []
+        if payloads.payloads is None:
+            return [None]
         for i, payload in enumerate(payloads.payloads):
             try:
                 type_hint = type_hints[i]
