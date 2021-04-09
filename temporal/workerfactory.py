@@ -31,7 +31,7 @@ class WorkerFactory:
     def ask_exit(self, signame):
         logger.info(f"Exit signal received: {signame}. Requesting all workers to stop.")
         for worker in self.workers:
-            worker.stop_requested = True
+            worker.stop_async()
 
     async def start_async(self):
         loop = asyncio.get_event_loop()
