@@ -112,6 +112,7 @@ class Worker:
                     _, method_name = qm.name.split("::")
                     impl_cls._query_methods[f'{cls_name}::{camel_to_snake(method_name)}'] = impl_fn  # type: ignore
                     impl_cls._query_methods[f'{cls_name}::{snake_to_camel(method_name)}'] = impl_fn  # type: ignore
+
     async def start_async(self):
         from .activity_loop import activity_task_loop_func
         from .decision_loop import decision_task_loop_func
