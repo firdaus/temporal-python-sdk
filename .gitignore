@@ -5,3 +5,4 @@ cadence_client.egg-info/
 temporal-api
 dependencies
 /temporal_python_sdk.egg-info/
+__pycache__

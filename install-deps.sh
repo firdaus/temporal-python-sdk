@@ -5,7 +5,7 @@ if [ -d "python-betterproto" ]; then
   echo $n
   mv python-betterproto "python-betterproto-$n"
 fi
-git clone git@github.com:firdaus/python-betterproto.git
+git clone https://github.com/firdaus/python-betterproto.git
 cd python-betterproto
 git checkout temporal-python-changes
 pip install .[compiler]

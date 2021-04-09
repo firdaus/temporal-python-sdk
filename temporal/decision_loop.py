@@ -900,9 +900,9 @@ event_handlers = {
 }
 
 
-def decision_task_loop_func(worker: Worker):
+async def decision_task_loop_func(worker: Worker):
     decision_task_loop = DecisionTaskLoop(worker=worker)
-    decision_task_loop.start()
+    await decision_task_loop.run()
 
 
 @dataclass
@@ -914,15 +914,11 @@ class DecisionTaskLoop:
     def __post_init__(self):
         pass
 
-    def start(self):
-        asyncio.create_task(self.run())
-
     @retry(logger=logger)
     async def run(self):
         try:
             logger.info(f"Decision task worker started: {get_identity()}")
-            # event_loop = asyncio.new_event_loop()
-            # asyncio.set_event_loop(event_loop)
+
             self.service = self.worker.client.service
             while True:
                 try:

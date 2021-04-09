@@ -112,10 +112,35 @@ class Worker:
                     _, method_name = qm.name.split("::")
                     impl_cls._query_methods[f'{cls_name}::{camel_to_snake(method_name)}'] = impl_fn  # type: ignore
                     impl_cls._query_methods[f'{cls_name}::{snake_to_camel(method_name)}'] = impl_fn  # type: ignore
+    async def start_async(self):
+        from .activity_loop import activity_task_loop_func
+        from .decision_loop import decision_task_loop_func
+
+        self.threads_stopped = 0
+        self.threads_started = 0
+        self.stop_requested = False
+
+        list_of_awaitables = []
+
+        if self.activities:
+            activities_awaitables = [
+                activity_task_loop_func(self) for i in range(0, self.num_activity_tasks)
+            ]
+            list_of_awaitables.extend(activities_awaitables)
+            self.threads_started += self.num_activity_tasks
+        if self.workflow_methods:
+            workflow_awaitables = [
+                decision_task_loop_func(self) for i in range(0, self.num_worker_tasks)
+            ]
+            list_of_awaitables.extend(workflow_awaitables)
+            self.threads_started += self.num_worker_tasks
+
+        await asyncio.gather(*list_of_awaitables)
 
     def start(self):
         from .activity_loop import activity_task_loop_func
         from .decision_loop import decision_task_loop_func
+
         self.threads_stopped = 0
         self.threads_started = 0
         self.stop_requested = False
@@ -125,7 +150,7 @@ class Worker:
                 self.threads_started += 1
         if self.workflow_methods:
             for i in range(0, self.num_worker_tasks):
-                decision_task_loop_func(self)
+                asyncio.create_task(decision_task_loop_func(self))
                 self.threads_started += 1
 
     async def stop(self, background=False):
