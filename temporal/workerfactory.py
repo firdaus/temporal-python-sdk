@@ -10,6 +10,7 @@ from temporal.workflow import WorkflowClient
 
 logger = logging.getLogger(__name__)
 
+exit_count = 0
 
 @dataclass
 class WorkerFactoryOptions:
@@ -28,8 +29,17 @@ class WorkerFactory:
         self.workers.append(worker)
         return worker
 
-    def ask_exit(self, signame):
-        logger.info(f"Exit signal received: {signame}. Requesting all workers to stop.")
+    def ask_exit(self, signame, loop):
+        global exit_count
+        exit_count += 1
+        
+        if exit_count > 1:
+            loop.stop()
+            return
+
+        logger.debug(f"Exit signal received: {signame}")
+        logger.info(f"Requesting all workers to stop. Try again to immediately terminate.")
+
         for worker in self.workers:
             worker.stop_async()
 
@@ -40,6 +50,7 @@ class WorkerFactory:
                 getattr(signal, signame),
                 self.ask_exit,
                 signame,
+                loop
             )
 
         worker_coros = [worker.start_async() for worker in self.workers]
