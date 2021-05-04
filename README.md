@@ -1,3 +1,7 @@
+----
+NOTE: I'm no longer working on this SDK. I decided to focus my efforts on more downstream tools.
+----
+
 # Unofficial Python SDK for the Temporal Workflow Engine
 
 ## Status
@@ -127,21 +131,18 @@ if __name__ == '__main__':
 1.2
 - [x] Timers
 - [x] Custom workflow ids through start() and new_workflow_stub()
-~~- [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub~~
-~~- [ ] ContinueAsNew ~~
-~~- [ ] Sticky workflows ~~
-~~- [ ] Child Workflows ~~
 
-~~1.3~~
-~~- [ ] Support for keyword arguments ~~
 
-~~2.0~~
-~~- [ ] Compatibility with Java client ~~
-~~- [ ] Compatibility with Golang client ~~
-~~- [ ] Upgrade python-betterproto ~~
-
-~~Post 2.0:~~
-~~- [ ] sideEffect/mutableSideEffect~~ 
-~~- [ ] Local activity~~
-~~- [ ] Cancellation Scopes ~~
-~~- [ ] Explicit activity ids for activity invocations~~
+Other:
+- [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub
+- [ ] ContinueAsNew
+- [ ] Sticky workflows
+- [ ] Child Workflows
+- [ ] Support for keyword arguments
+- [ ] Compatibility with Java client 
+- [ ] Compatibility with Golang client
+- [ ] Upgrade python-betterproto
+- [ ] sideEffect/mutableSideEffect
+- [ ] Local activity
+- [ ] Cancellation Scopes
+- [ ] Explicit activity ids for activity invocations
