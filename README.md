@@ -128,20 +128,20 @@ if __name__ == '__main__':
 - [x] Timers
 - [x] Custom workflow ids through start() and new_workflow_stub()
 ~~- [ ] WorkflowStub and WorkflowClient.newUntypedWorkflowStub~~
-~~- [ ] ContinueAsNew ![status-wip]~~(https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
-~~- [ ] Sticky workflows ![status-wip]~~(https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
-~~- [ ] Child Workflows ![status-wip]~~(https://img.shields.io/badge/status-work_in_progress-lightgrey.svg)
+~~- [ ] ContinueAsNew ~~
+~~- [ ] Sticky workflows ~~
+~~- [ ] Child Workflows ~~
 
 ~~1.3~~
-~~- [ ] Support for keyword arguments ![])~~(https://img.shields.io/badge/PRs-welcome-informational
+~~- [ ] Support for keyword arguments ~~
 
 ~~2.0~~
-~~- [ ] Compatibility with Java client ![])~~(https://img.shields.io/badge/PRs-welcome-informational
-~~- [ ] Compatibility with Golang client ![])~~(https://img.shields.io/badge/PRs-welcome-informational)
-~~- [ ] Upgrade python-betterproto ![])~~(https://img.shields.io/badge/PRs-welcome-informational
+~~- [ ] Compatibility with Java client ~~
+~~- [ ] Compatibility with Golang client ~~
+~~- [ ] Upgrade python-betterproto ~~
 
 ~~Post 2.0:~~
-~~- [ ] sideEffect/mutableSideEffect ![]~~(https://img.shields.io/badge/PRs-welcome-informational
-~~- [ ] Local activity ![]~~(https://img.shields.io/badge/PRs-welcome-informational
-~~- [ ] Cancellation Scopes ![]~~(https://img.shields.io/badge/PRs-welcome-informational
-~~- [ ] Explicit activity ids for activity invocations ![]~~(https://img.shields.io/badge/PRs-welcome-informational
+~~- [ ] sideEffect/mutableSideEffect~~ 
+~~- [ ] Local activity~~
+~~- [ ] Cancellation Scopes ~~
+~~- [ ] Explicit activity ids for activity invocations~~
