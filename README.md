@@ -1,5 +1,5 @@
 ----
-NOTE: I'm no longer working on this SDK. I will be focusing my efforts on downstream tools. 
+NOTE: I'm no longer working on this SDK. I will be refocusing my efforts on downstream tools. 
 ----
 
 # Unofficial Python SDK for the Temporal Workflow Engine
