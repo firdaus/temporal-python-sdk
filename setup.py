@@ -17,7 +17,7 @@ setuptools.setup(
     install_requires=[
         "betterproto-for-temporal-python-sdk==1.2.5",
         "dataclasses-json==0.3.8",
-        "grpcio==1.30.0",
+        "grpcio==1.38.0",
         "grpclib==0.3.2",
         "h2==3.2.0",
         "more-itertools==7.0.0",
@@ -28,6 +28,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
