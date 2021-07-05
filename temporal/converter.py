@@ -67,7 +67,7 @@ class DefaultDataConverter(DataConverter):
         decoding = DECODINGS.get(encoding)
         if not decoding:
             raise Exception(f"Unsupported encoding: {str(encoding, 'utf-8')}")
-        return decoding(payload)
+        return decoding(payload, type_hint)
 
 
 DEFAULT_DATA_CONVERTER_INSTANCE = DefaultDataConverter()
