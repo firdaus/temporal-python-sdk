@@ -2,6 +2,8 @@ import json
 import re
 from typing import List, Optional, Union, Iterable
 
+import betterproto
+
 from temporal.api.common.v1 import Payload, Payloads
 
 
@@ -30,10 +32,10 @@ METADATA_ENCODING_RAW_NAME = "binary/plain"
 METADATA_ENCODING_RAW = METADATA_ENCODING_RAW_NAME.encode("utf-8")
 METADATA_ENCODING_JSON_NAME = "json/plain"
 METADATA_ENCODING_JSON = METADATA_ENCODING_JSON_NAME.encode("utf-8")
-
-# TODO: Implement encode/decode for these:
 METADATA_ENCODING_PROTOBUF_JSON_NAME = "json/protobuf"
 METADATA_ENCODING_PROTOBUF_JSON = METADATA_ENCODING_PROTOBUF_JSON_NAME.encode("utf-8")
+
+# TODO: Implement encode/decode for these:
 METADATA_ENCODING_PROTOBUF_NAME = "binary/protobuf"
 METADATA_ENCODING_PROTOBUF = METADATA_ENCODING_PROTOBUF_NAME.encode('utf-8')
 
@@ -87,9 +89,24 @@ def decode_json_string(payload: Payload) -> object:
     return json.loads(b)
 
 
+def encode_protobuf_json(value: object) -> Payload:
+    if not isinstance(value, betterproto.Message):
+        return None
+    p: Payload = Payload()
+    p.metadata = {METADATA_ENCODING_KEY: METADATA_ENCODING_PROTOBUF_JSON}
+    p.data = value.to_json().encode("utf-8")
+    return p
+
+
+def decode_protobuf_json(payload: Payload) -> object:
+    b = str(payload.data, "utf-8")
+    return betterproto.Message().from_json(b)
+
+
 ENCODINGS = [
     encode_null,
     encode_binary,
+    encode_protobuf_json,
     encode_json_string
 ]
 
@@ -97,6 +114,7 @@ ENCODINGS = [
 DECODINGS = {
     METADATA_ENCODING_NULL: decode_null,
     METADATA_ENCODING_RAW: decode_binary,
+    METADATA_ENCODING_PROTOBUF_JSON: decode_protobuf_json,
     METADATA_ENCODING_JSON: decode_json_string
 }
 
