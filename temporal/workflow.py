@@ -25,7 +25,7 @@ from .errors import QueryFailedError
 from .exception_handling import deserialize_exception
 from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
     QueryFailureException, WorkflowOperationException
-from .service_helpers import create_workflow_service, get_identity
+from .service_helpers import create_workflow_service, get_identity, TLSOptions
 
 
 T = TypeVar('T')
@@ -157,8 +157,9 @@ class WorkflowClient:
     @classmethod
     def new_client(cls, host: str = "localhost", port: int = 7233, namespace: str = "",
                    options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS,
-                   data_converter: DataConverter = DEFAULT_DATA_CONVERTER_INSTANCE) -> WorkflowClient:
-        service = create_workflow_service(host, port, timeout=timeout)
+                   data_converter: DataConverter = DEFAULT_DATA_CONVERTER_INSTANCE,
+                   tls_options: TLSOptions = None) -> WorkflowClient:
+        service = create_workflow_service(host, port, timeout=timeout, tls_options=tls_options)
         return cls(service=service, namespace=namespace, options=options, data_converter=data_converter)
 
     @classmethod
