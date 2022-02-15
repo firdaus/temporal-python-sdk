@@ -4,12 +4,12 @@ import inspect
 import json
 import random
 import uuid
+from asyncio import Future
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Callable, List, Type, Dict, Tuple, Any
+from typing import Callable, List, Type, Dict, Tuple, Any, TypeVar
 from uuid import uuid4
 
-from .activity import ActivityCompletionClient
 from .activity_method import RetryParameters, ActivityOptions
 from .api.common.v1 import WorkflowType, WorkflowExecution, SearchAttributes, Memo
 from .api.enums.v1 import WorkflowIdReusePolicy, HistoryEventFilterType, EventType
@@ -20,7 +20,7 @@ from .api.workflowservice.v1 import StartWorkflowExecutionRequest, GetWorkflowEx
     QueryWorkflowRequest, QueryWorkflowResponse, SignalWorkflowExecutionRequest, WorkflowServiceStub
 
 from .constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
-from .conversions import to_payloads, from_payloads, to_payload
+from .converter import DataConverter, DEFAULT_DATA_CONVERTER_INSTANCE, get_fn_ret_type_hints, get_fn_args_type_hints
 from .errors import QueryFailedError
 from .exception_handling import deserialize_exception
 from .exceptions import WorkflowFailureException, ActivityFailureException, QueryRejectedException, \
@@ -28,18 +28,26 @@ from .exceptions import WorkflowFailureException, ActivityFailureException, Quer
 from .service_helpers import create_workflow_service, get_identity
 
 
+T = TypeVar('T')
+
+
 class Workflow:
 
     @staticmethod
-    def new_activity_stub(activities_cls, retry_parameters: RetryParameters = None, activity_options: ActivityOptions = None):
+    def new_activity_stub(activities_cls: Type[T], retry_parameters: RetryParameters = None, activity_options: ActivityOptions = None) -> T:
         from .decision_loop import ITask
         task: ITask = ITask.current()
         assert task
-        cls = activities_cls()
-        cls._decision_context = task.decider.decision_context
-        cls._retry_parameters = retry_parameters  # type: ignore
-        cls._activity_options = activity_options
-        return cls
+        attrs: Dict[str, Any] = {}
+        for name, fn in inspect.getmembers(activities_cls, inspect.isfunction):
+            if hasattr(fn, "stub_activity_fn"):
+                attrs[name] = fn.stub_activity_fn
+        stub_cls = type(activities_cls.__name__, (object,), attrs)
+        stub_instance = stub_cls()
+        stub_instance._decision_context = task.decider.decision_context
+        stub_instance._retry_parameters = retry_parameters  # type: ignore
+        stub_instance._activity_options = activity_options
+        return stub_instance
 
     @staticmethod
     def new_untyped_activity_stub(retry_parameters: RetryParameters = None,
@@ -63,9 +71,19 @@ class Workflow:
 
     @staticmethod
     async def sleep(seconds: int):
+        future = Workflow.new_timer(seconds)
+        await future
+        assert future.done()
+        exception = future.exception()
+        if exception:
+            raise exception
+
+    @staticmethod
+    def new_timer(seconds: int) -> Future[Any]:
         from .decision_loop import ITask
         task: ITask = ITask.current()
-        await task.decider.decision_context.schedule_timer(seconds)
+        future = task.decider.decision_context.schedule_timer(seconds)
+        return future
 
     @staticmethod
     def current_time_millis() -> int:
@@ -126,6 +144,7 @@ class WorkflowStub:
 class WorkflowExecutionContext:
     workflow_type: str
     workflow_execution: WorkflowExecution
+    workflow_method_instance: WorkflowMethod
 
 
 @dataclass
@@ -133,12 +152,14 @@ class WorkflowClient:
     service: WorkflowServiceStub
     namespace: str
     options: WorkflowClientOptions
+    data_converter: DataConverter
 
     @classmethod
     def new_client(cls, host: str = "localhost", port: int = 7233, namespace: str = "",
-                   options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS) -> WorkflowClient:
+                   options: WorkflowClientOptions = None, timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS,
+                   data_converter: DataConverter = DEFAULT_DATA_CONVERTER_INSTANCE) -> WorkflowClient:
         service = create_workflow_service(host, port, timeout=timeout)
-        return cls(service=service, namespace=namespace, options=options)
+        return cls(service=service, namespace=namespace, options=options, data_converter=data_converter)
 
     @classmethod
     async def start(cls, stub_fn: Callable, *args) -> WorkflowExecutionContext:
@@ -180,9 +201,15 @@ class WorkflowClient:
     async def wait_for_close(self, context: WorkflowExecutionContext) -> object:
         return await self.wait_for_close_with_workflow_id(workflow_id=context.workflow_execution.workflow_id,
                                                     run_id=context.workflow_execution.run_id,
-                                                    workflow_type=context.workflow_type)
+                                                    workflow_method_instance=context.workflow_method_instance)
 
-    async def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None, workflow_type: str = None):
+    async def wait_for_close_with_workflow_id(self, workflow_id: str, run_id: str = None,
+                                              workflow_method_instance: WorkflowMethod = None,
+                                              workflow_fn: Callable = None):
+        if not workflow_method_instance and workflow_fn:
+            if not hasattr(workflow_fn, "_workflow_method"):
+                raise Exception("workflow_fn is not a valid workflow stub function")
+            workflow_method_instance = workflow_fn._workflow_method
         while True:
             history_request = create_close_history_event_request(self, workflow_id, run_id)
             history_response = await self.service.get_workflow_execution_history(request=history_request)
@@ -191,7 +218,11 @@ class WorkflowClient:
             history_event = history_response.history.events[0]
             if history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED:
                 completed_attributes = history_event.workflow_execution_completed_event_attributes
-                payloads: List[object] = from_payloads(completed_attributes.result)
+                type_hints = []
+                if workflow_method_instance:
+                    type_hints = workflow_method_instance._ret_type_hints
+                payloads: List[object] = self.data_converter.from_payloads(completed_attributes.result,
+                                                                           type_hints=type_hints)
                 return payloads[0]
             elif history_event.event_type == EventType.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED:
                 failed_attributes = history_event.workflow_execution_failed_event_attributes
@@ -225,7 +256,7 @@ class WorkflowClient:
                 raise Exception("Unexpected history close event: " + str(history_event))
 
     def new_activity_completion_client(self):
-        return ActivityCompletionClient(self.service)
+        return ActivityCompletionClient(self)
 
     def close(self):
         self.service.channel.close()
@@ -237,7 +268,7 @@ async def exec_workflow(workflow_client: WorkflowClient, wm: WorkflowMethod, arg
     start_response = await workflow_client.service.start_workflow_execution(request=start_request)
     execution = WorkflowExecution(workflow_id=start_request.workflow_id, run_id=start_response.run_id)
     stub_instance._execution = execution  # type: ignore
-    return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution)
+    return WorkflowExecutionContext(workflow_type=wm._name, workflow_execution=execution, workflow_method_instance=wm)
 
 
 async def exec_workflow_sync(workflow_client: WorkflowClient, wm: WorkflowMethod, args: List,
@@ -253,7 +284,7 @@ async def exec_signal(workflow_client: WorkflowClient, sm: SignalMethod, args, s
     request = SignalWorkflowExecutionRequest()
     request.workflow_execution = stub_instance._execution  # type: ignore
     request.signal_name = sm.name
-    request.input = to_payloads(args)
+    request.input = workflow_client.data_converter.to_payloads(args)
     request.namespace = workflow_client.namespace
     response = await workflow_client.service.signal_workflow_execution(request=request)
 
@@ -264,7 +295,7 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     request.execution = stub_instance._execution  # type: ignore
     request.query = WorkflowQuery()
     request.query.query_type = qm.name
-    request.query.query_args = to_payloads(args)
+    request.query.query_args = workflow_client.data_converter.to_payloads(args)
     request.namespace = workflow_client.namespace
     response: QueryWorkflowResponse = await workflow_client.service.query_workflow(request=request)
     """
@@ -280,20 +311,20 @@ async def exec_query(workflow_client: WorkflowClient, qm: QueryMethod, args, stu
     """
     if response.query_rejected:
         raise QueryRejectedException(response.query_rejected.status)
-    return from_payloads(response.query_result)[0]
+    return workflow_client.data_converter.from_payloads(response.query_result, qm.ret_type_hints)[0]
 
 
-def create_memo(m: Dict[str, object]) -> Memo:
+def create_memo(m: Dict[str, object], data_converter: DataConverter) -> Memo:
     memo = Memo();
     for k, v in m.items():
-        memo.fields[k] = to_payload(v)
+        memo.fields[k] = data_converter.to_payload(v)
     return memo
 
 
-def create_search_attributes(s: Dict[str, object]) -> SearchAttributes:
+def create_search_attributes(s: Dict[str, object], data_converter: DataConverter) -> SearchAttributes:
     search_attributes = SearchAttributes()
     for k, v in s.items():
-        search_attributes.indexed_fields[k] = to_payload(v)
+        search_attributes.indexed_fields[k] = data_converter.to_payload(v)
     return search_attributes
 
 
@@ -306,7 +337,7 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.workflow_type.name = wm._name
     start_request.task_queue = TaskQueue()
     start_request.task_queue.name = wm._task_queue
-    start_request.input = to_payloads(args)
+    start_request.input = workflow_client.data_converter.to_payloads(args)
 
     start_request.workflow_execution_timeout = wm._workflow_execution_timeout
     start_request.workflow_run_timeout = wm._workflow_run_timeout
@@ -318,29 +349,31 @@ def create_start_workflow_request(workflow_client: WorkflowClient, wm: WorkflowM
     start_request.cron_schedule = wm._cron_schedule if wm._cron_schedule else None
 
     if wm._memo:
-        start_request.memo = create_memo(wm._memo)
+        start_request.memo = create_memo(wm._memo, workflow_client.data_converter)
     if wm._search_attributes:
-        start_request.search_attributes = create_search_attributes(wm._search_attributes)
+        start_request.search_attributes = create_search_attributes(wm._search_attributes,
+                                                                   workflow_client.data_converter)
 
     if workflow_options:
         if workflow_options.workflow_id:
             start_request.workflow_id = workflow_options.workflow_id
-        if workflow_options.workflow_id_reuse_policy:
+        if workflow_options.workflow_id_reuse_policy is not None:
             start_request.workflow_id_reuse_policy = workflow_options.workflow_id_reuse_policy
-        if workflow_options.workflow_run_timeout:
+        if workflow_options.workflow_run_timeout is not None:
             start_request.workflow_run_timeout = workflow_options.workflow_run_timeout
-        if workflow_options.workflow_execution_timeout:
+        if workflow_options.workflow_execution_timeout is not None:
             start_request.workflow_execution_timeout = workflow_options.workflow_execution_timeout
-        if workflow_options.workflow_task_timeout:
+        if workflow_options.workflow_task_timeout is not None:
             start_request.workflow_task_timeout = workflow_options.workflow_task_timeout
         if workflow_options.task_queue:
             start_request.task_queue = workflow_options.task_queue
         if workflow_options.cron_schedule:
             start_request.cron_schedule = workflow_options.cron_schedule
-        if workflow_options.memo:
-            start_request.memo = create_memo(workflow_options.memo)
-        if workflow_options.search_attributes:
-            start_request.search_attributes = create_search_attributes(workflow_options.search_attributes)
+        if workflow_options.memo is not None:
+            start_request.memo = create_memo(workflow_options.memo, workflow_client.data_converter)
+        if workflow_options.search_attributes is not None:
+            start_request.search_attributes = create_search_attributes(workflow_options.search_attributes,
+                                                                       workflow_client.data_converter)
 
     return start_request
 
@@ -401,15 +434,16 @@ class WorkflowMethod(object):
     _workflow_task_timeout: timedelta = None
     _memo: Dict[str, object] = None
     _search_attributes: Dict[str, object] = None
+    _ret_type_hints: List[type] = None
 
 
 def workflow_method(func=None,
                     name=None,
                     workflow_id=None,
                     workflow_id_reuse_policy=WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-                    workflow_execution_timeout=timedelta(seconds=7200),  # (2 hours)
-                    workflow_run_timeout=timedelta(seconds=7200),  # 2 hours
-                    workflow_task_timeout=timedelta(seconds=60),
+                    workflow_execution_timeout=timedelta(seconds=0),
+                    workflow_run_timeout=timedelta(seconds=0),
+                    workflow_task_timeout=timedelta(seconds=60),  # default on the server is 10s
                     task_queue=None,
                     memo: Dict[str, object] = None,
                     search_attributes: Dict[str, object] = None):
@@ -425,6 +459,7 @@ def workflow_method(func=None,
         fn._workflow_method._workflow_task_timeout = workflow_task_timeout
         fn._workflow_method._memo = memo
         fn._workflow_method._search_attributes = search_attributes
+        fn._workflow_method._ret_type_hints = get_fn_ret_type_hints(fn)
         return fn
 
     if func and inspect.isfunction(func):
@@ -436,12 +471,14 @@ def workflow_method(func=None,
 @dataclass
 class QueryMethod:
     name: str = None
+    ret_type_hints: List[type] = None
 
 
 def query_method(func=None, name: str = None):
     def wrapper(fn):
         fn._query_method = QueryMethod()
         fn._query_method.name = name if name else get_workflow_method_name(fn)
+        fn._query_method.ret_type_hints = get_fn_ret_type_hints(fn)
         return fn
 
     if func and inspect.isfunction(func):
@@ -543,3 +580,5 @@ class WorkflowExecutionTerminatedException(Exception):
     def __str__(self) -> str:
         return self.reason
 
+
+from .activity import ActivityCompletionClient

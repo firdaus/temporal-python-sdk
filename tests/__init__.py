@@ -1,30 +1,35 @@
+import asyncio
 import logging
-import time
-from typing import List
 
 from temporal.worker import Worker
+from temporal.workflow import WorkflowClient
 
 logging.basicConfig(level=logging.INFO)
 
-_workers: List[Worker] = []
+workers_to_cleanup = []
 
 
 def setup_module():
     pass
 
 
+async def monitor_teardown():
+    from .conftest import loop
+    while True:
+        running_tasks = asyncio.all_tasks(loop)
+        print(f"running_tasks={len(running_tasks)}")
+        await asyncio.sleep(5)
+
+
 def teardown_module():
-    global _workers
-    for worker in _workers:
-        worker.stop(background=True)
-    print(f"Workers to cleanup: {len(_workers)}")
-    for n, worker in enumerate(_workers):
-        print(f"Stopping worker: {n + 1}")
-        while not worker.is_stopped():
-            time.sleep(5)
+    from .conftest import loop
+    pending = asyncio.all_tasks(loop)
+    print("Waiting for workers to cleanup....")
+    loop.create_task(monitor_teardown())
+    loop.run_until_complete(asyncio.gather(*pending))
 
 
-def cleanup_worker(worker: Worker):
-    global _workers
-    worker.stop(background=True)
-    _workers.append(worker)
+async def cleanup_worker(client: WorkflowClient, worker: Worker):
+    workers_to_cleanup.append(worker)
+    await worker.stop(background=False)
+    client.close()

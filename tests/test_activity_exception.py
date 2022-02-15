@@ -22,7 +22,7 @@ class GreetingException(Exception):
 
 class GreetingActivitiesImpl:
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         raise GreetingException("greeting error!")
 
 

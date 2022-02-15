@@ -1,29 +1,25 @@
 import pytest
 from datetime import timedelta
-import asyncio
 
-from temporal.async_activity import Async
 from temporal.workflow import workflow_method, WorkflowClient, Workflow
 from temporal.activity_method import activity_method
 
-
-TASK_QUEUE = "test_activity_async_all_of_tq"
+TASK_QUEUE = "test_workflow_long_history"
 NAMESPACE = "default"
-executed = False
+activity_invocation_count = 0
 
 
 class GreetingActivities:
     @activity_method(task_queue=TASK_QUEUE, schedule_to_close_timeout=timedelta(seconds=1000))
-    async def compose_greeting(self, arg) -> str:
+    async def compose_greeting(self, i: int) -> str:
         raise NotImplementedError
 
 
 class GreetingActivitiesImpl:
-    activity_method_executed_counter: int = 0
 
-    async def compose_greeting(self, arg):
-        GreetingActivitiesImpl.activity_method_executed_counter += 1
-        return arg
+    async def compose_greeting(self, i: int):
+        global activity_invocation_count
+        activity_invocation_count += 1
 
 
 class GreetingWorkflow:
@@ -38,12 +34,9 @@ class GreetingWorkflowImpl(GreetingWorkflow):
         self.greeting_activities: GreetingActivities = Workflow.new_activity_stub(GreetingActivities)
 
     async def get_greeting(self):
-        futures = [
-            Async.function(self.greeting_activities.compose_greeting, 10),
-            Async.function(self.greeting_activities.compose_greeting, 20),
-            Async.function(self.greeting_activities.compose_greeting, 30)
-        ]
-        await Async.all_of(futures)
+        for i in range(200):
+            await self.greeting_activities.compose_greeting(i)
+        return i
 
 
 @pytest.mark.asyncio
@@ -52,6 +45,7 @@ class GreetingWorkflowImpl(GreetingWorkflow):
 async def test(worker):
     client = WorkflowClient.new_client(namespace=NAMESPACE)
     greeting_workflow: GreetingWorkflow = client.new_workflow_stub(GreetingWorkflow)
-    await greeting_workflow.get_greeting()
+    ret_value = await greeting_workflow.get_greeting()
 
-    assert GreetingActivitiesImpl.activity_method_executed_counter == 3
+    assert ret_value == 199
+    assert activity_invocation_count == 200

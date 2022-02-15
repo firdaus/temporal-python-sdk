@@ -32,7 +32,7 @@ class ActivityTaskFailedException(Exception):
 
 class ActivityTaskTimeoutException(Exception):
 
-    def __init__(self, event_id: int, timeout_type: TimeoutType, details: bytes, *args: object) -> None:
+    def __init__(self, event_id: int = None, timeout_type: TimeoutType = None, details: bytes = None, *args: object) -> None:
         super().__init__(*args)
         self.details = details
         self.timeout_type = timeout_type

@@ -1,30 +1,16 @@
-import threading
+import time
+from datetime import timedelta
 
 import pytest
-from datetime import timedelta
-import asyncio
 
 from temporal.activity import Activity
+from temporal.activity_method import activity_method
 from temporal.async_activity import Async
 from temporal.workflow import workflow_method, WorkflowClient, Workflow
-from temporal.activity_method import activity_method
 
-
-TASK_QUEUE = "test_activity_async_any_of_tq"
+TASK_QUEUE = "test_activity_async_any_of_timer_tq"
 NAMESPACE = "default"
 executed = False
-
-
-def greeting_activities_thread_func(task_token, sleep_seconds):
-    async def fn():
-        client = WorkflowClient.new_client(namespace=NAMESPACE)
-        activity_completion_client = client.new_activity_completion_client()
-        print(f"Sleeping for {sleep_seconds} seconds")
-        await asyncio.sleep(sleep_seconds)
-        await activity_completion_client.complete(task_token, sleep_seconds)
-        client.close()
-
-    asyncio.run(fn())
 
 
 class GreetingActivities:
@@ -37,8 +23,6 @@ class GreetingActivitiesImpl:
 
     async def compose_greeting(self, sleep_seconds):
         Activity.do_not_complete_on_return()
-        thread = threading.Thread(target=greeting_activities_thread_func, args=(Activity.get_task_token(), sleep_seconds))
-        thread.start()
 
 
 class GreetingWorkflow:
@@ -47,19 +31,23 @@ class GreetingWorkflow:
         raise NotImplementedError
 
 
+done = None
+timer = None
+
+
 class GreetingWorkflowImpl(GreetingWorkflow):
 
     def __init__(self):
         self.greeting_activities: GreetingActivities = Workflow.new_activity_stub(GreetingActivities)
 
     async def get_greeting(self):
+        global done, timer
+        timer = Workflow.new_timer(5)
         futures = [
-            Async.function(self.greeting_activities.compose_greeting, 10),
-            Async.function(self.greeting_activities.compose_greeting, 20),
-            Async.function(self.greeting_activities.compose_greeting, 30)
+            Async.function(self.greeting_activities.compose_greeting, 50),
+            timer
         ]
         done, pending = await Async.any_of(futures)
-        return done[0].get_result()
 
 
 @pytest.mark.asyncio
@@ -68,6 +56,10 @@ class GreetingWorkflowImpl(GreetingWorkflow):
 async def test(worker):
     client = WorkflowClient.new_client(namespace=NAMESPACE)
     greeting_workflow: GreetingWorkflow = client.new_workflow_stub(GreetingWorkflow)
-    ret_value = await greeting_workflow.get_greeting()
-    assert ret_value == 10
-
+    start_time = time.time()
+    await greeting_workflow.get_greeting()
+    end_time = time.time()
+    assert 5 < end_time - start_time < 50
+    assert len(done) == 1
+    assert done[0] is timer
+    client.close()

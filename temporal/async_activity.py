@@ -3,7 +3,6 @@ from asyncio import Future
 from typing import List, Union
 
 from temporal.activity_method import ExecuteActivityParameters
-from temporal.conversions import to_payloads
 from temporal.decision_loop import ActivityFuture
 
 
@@ -25,9 +24,9 @@ class Async:
             self._activity_options.fill_execute_activity_parameters(parameters)
         if self._retry_parameters:
             parameters.retry_parameters = self._retry_parameters
-        parameters.input = to_payloads(args)
         from temporal.decision_loop import DecisionContext
         decision_context: DecisionContext = self._decision_context
+        parameters.input = decision_context.decider.worker.client.data_converter.to_payloads(args)
         return decision_context.schedule_activity_task(parameters=parameters)
 
     @staticmethod

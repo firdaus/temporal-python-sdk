@@ -33,7 +33,7 @@ def greeting_activities_thread_func(task_token):
 
 class GreetingActivitiesImpl:
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         Activity.do_not_complete_on_return()
         thread = threading.Thread(target=greeting_activities_thread_func, args=(Activity.get_task_token(),))
         thread.start()

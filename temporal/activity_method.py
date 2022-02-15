@@ -31,6 +31,7 @@ class RetryParameters:
 
 @dataclass
 class ExecuteActivityParameters:
+    fn: Callable = None
     activity_id: str = ""
     activity_type: ActivityType = None
     heartbeat_timeout: timedelta = None
@@ -57,6 +58,7 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
             raise Exception("task_queue parameter is mandatory")
 
         execute_parameters = ExecuteActivityParameters()
+        execute_parameters.fn = fn
         execute_parameters.activity_type = ActivityType()
         execute_parameters.activity_type.name = name if name else get_activity_method_name(fn)
         execute_parameters.schedule_to_close_timeout = schedule_to_close_timeout
@@ -67,7 +69,8 @@ def activity_method(func: Callable = None, name: str = "", schedule_to_close_tim
         execute_parameters.retry_parameters = retry_parameters
         # noinspection PyTypeHints
         stub_activity_fn._execute_parameters = execute_parameters  # type: ignore
-        return stub_activity_fn
+        fn.stub_activity_fn = stub_activity_fn
+        return fn
 
     if func and inspect.isfunction(func):
         raise Exception("activity_method must be called with arguments")

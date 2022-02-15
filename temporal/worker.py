@@ -1,16 +1,13 @@
+import asyncio
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Tuple, List
+from typing import Callable, Dict, Tuple
 import inspect
-import threading
 import logging
-import time
 
 from temporal.constants import DEFAULT_SOCKET_TIMEOUT_SECONDS
 from temporal.conversions import camel_to_snake, snake_to_camel, snake_to_title
 
-from .workflow import WorkflowMethod, SignalMethod, QueryMethod
-
-from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService
+from .workflow import WorkflowMethod, SignalMethod, QueryMethod, WorkflowClient
 
 logger = logging.getLogger(__name__)
 
@@ -60,19 +57,18 @@ def _get_qm(cls: type, method_name: str) -> QueryMethod:
 
 @dataclass
 class Worker:
-    host: str = None
-    port: int = None
+    client: WorkflowClient
     namespace: str = None
     task_queue: str = None
     options: WorkerOptions = None
     activities: Dict[str, Callable] = field(default_factory=dict)
     workflow_methods: Dict[str, Tuple[type, Callable]] = field(default_factory=dict)
-    service: WorkflowService = None
     threads_started: int = 0
     threads_stopped: int = 0
     stop_requested: bool = False
-    service_instances: List[WorkflowService] = field(default_factory=list)
     timeout: int = DEFAULT_SOCKET_TIMEOUT_SECONDS
+    num_activity_tasks = 1
+    num_worker_tasks = 1
 
     def register_activities_implementation(self, activities_instance: object, activities_cls_name: str = None):
         cls_name = activities_cls_name if activities_cls_name else type(activities_instance).__name__
@@ -118,27 +114,27 @@ class Worker:
                     impl_cls._query_methods[f'{cls_name}::{snake_to_camel(method_name)}'] = impl_fn  # type: ignore
 
     def start(self):
-        from temporal.activity_loop import activity_task_loop
+        from .activity_loop import activity_task_loop_func
         from .decision_loop import decision_task_loop_func
         self.threads_stopped = 0
         self.threads_started = 0
         self.stop_requested = False
         if self.activities:
-            thread = threading.Thread(target=activity_task_loop, args=(self,))
-            thread.start()
-            self.threads_started += 1
+            for i in range(0, self.num_activity_tasks):
+                asyncio.create_task(activity_task_loop_func(self))
+                self.threads_started += 1
         if self.workflow_methods:
-            thread = threading.Thread(target=decision_task_loop_func, args=(self,))
-            thread.start()
-            self.threads_started += 1
+            for i in range(0, self.num_worker_tasks):
+                decision_task_loop_func(self)
+                self.threads_started += 1
 
-    def stop(self, background=False):
+    async def stop(self, background=False):
         self.stop_requested = True
         if background:
             return
         else:
             while self.threads_stopped != self.threads_started:
-                time.sleep(5)
+                await asyncio.sleep(5)
 
     def is_stopped(self):
         return self.threads_stopped == self.threads_started
@@ -151,9 +147,6 @@ class Worker:
 
     def get_workflow_method(self, workflow_type_name: str) -> Tuple[type, Callable]:
         return self.workflow_methods[workflow_type_name]
-
-    def manage_service(self, service: WorkflowService):
-        self.service_instances.append(service)
 
     def set_timeout(self, timeout):
         self.timeout = timeout

@@ -17,7 +17,7 @@ class GreetingActivities:
 class GreetingActivitiesImpl:
     activity_method_executed: bool = False
 
-    def compose_greeting(self):
+    async def compose_greeting(self):
         GreetingActivitiesImpl.activity_method_executed = True
 
 
