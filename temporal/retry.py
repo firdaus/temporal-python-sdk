@@ -7,6 +7,8 @@ BACK_OFF_MULTIPLIER = 2
 MAX_DELAY_SECONDS = 5 * 60
 RESET_DELAY_AFTER_SECONDS = 10 * 60
 
+class RetryException(Exception):
+    pass
 
 def retry(logger=None):
     def wrapper(fp):
@@ -17,6 +19,9 @@ def retry(logger=None):
                     await fp(*args, **kwargs)
                     logger.debug("@retry decorated function %s exited, ending retry loop", fp.__name__)
                     break
+                except RetryException:
+                    logger.info('sleeping...')
+                    await asyncio.sleep(INITIAL_DELAY_SECONDS)
                 except Exception as ex:
                     now = calendar.timegm(time.gmtime())
                     if last_failed_time == -1 or (now - last_failed_time) > RESET_DELAY_AFTER_SECONDS:
