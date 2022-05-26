@@ -17,7 +17,7 @@ def retry(logger=None):
                     await fp(*args, **kwargs)
                     logger.debug("@retry decorated function %s exited, ending retry loop", fp.__name__)
                     break
-                except Exception as ex:
+                except (Exception, asyncio.CancelledError) as ex:
                     now = calendar.timegm(time.gmtime())
                     if last_failed_time == -1 or (now - last_failed_time) > RESET_DELAY_AFTER_SECONDS:
                         delay_seconds = INITIAL_DELAY_SECONDS
