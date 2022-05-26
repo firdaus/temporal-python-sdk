@@ -9,7 +9,7 @@ from grpclib import GRPCError
 from temporal.activity import ActivityContext, ActivityTask, complete_exceptionally, complete
 from temporal.api.taskqueue.v1 import TaskQueue, TaskQueueMetadata
 from temporal.converter import get_fn_args_type_hints
-from temporal.retry import RetryException, retry
+from temporal.retry import retry
 from temporal.service_helpers import get_identity
 from temporal.worker import Worker, StopRequestedException
 from temporal.api.workflowservice.v1 import WorkflowServiceStub as WorkflowService, PollActivityTaskQueueRequest, \
@@ -93,4 +93,3 @@ async def activity_task_loop_func(worker: Worker):
     finally:
         worker.notify_thread_stopped()
         logger.info("Activity loop ended")
-        raise RetryException('sleep')
