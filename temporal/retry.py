@@ -17,7 +17,7 @@ def retry(logger=None):
                     await fp(*args, **kwargs)
                     logger.debug("@retry decorated function %s exited, ending retry loop", fp.__name__)
                     break
-                except asyncio.CancelledError as ex:
+                except asyncio.CancelledError:
                     logger.info("%s raised CancelledError, retrying...", fp.__name__)
                     await asyncio.sleep(INITIAL_DELAY_SECONDS)
                 except Exception as ex:
