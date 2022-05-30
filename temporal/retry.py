@@ -1,5 +1,6 @@
 import asyncio
 import calendar
+from socket import gaierror
 import time
 
 INITIAL_DELAY_SECONDS = 3
@@ -17,8 +18,8 @@ def retry(logger=None):
                     await fp(*args, **kwargs)
                     logger.debug("@retry decorated function %s exited, ending retry loop", fp.__name__)
                     break
-                except asyncio.CancelledError:
-                    logger.info("%s raised CancelledError, retrying...", fp.__name__)
+                except (asyncio.CancelledError, gaierror) as err:
+                    logger.info(f"{fp.__name__} raised {err}, retrying...")
                     await asyncio.sleep(INITIAL_DELAY_SECONDS)
                 except Exception as ex:
                     now = calendar.timegm(time.gmtime())
